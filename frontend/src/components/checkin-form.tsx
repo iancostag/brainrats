@@ -1,7 +1,7 @@
 "use client";
 
-import { ChevronDown, ChevronUp, PlusCircle } from "lucide-react";
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { Check, ChevronDown, ChevronUp, PlusCircle } from "lucide-react";
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import {
   createCheckin,
@@ -45,6 +45,12 @@ export function CheckinForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (enabledConfigs.length > 0 && !enabledConfigs.some((c) => c.slug === categorySlug)) {
+      setCategorySlug(enabledConfigs[0].slug);
+    }
+  }, [challengeId, categorySlug, enabledConfigs]);
 
   function buildMetadata(): Record<string, unknown> {
     if (categorySlug === "leetcode") {
@@ -164,10 +170,13 @@ export function CheckinForm({
           id="checkin-title-input"
           type="text"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            if (successMessage) setSuccessMessage(null);
+          }}
           onKeyDown={handleKeyDown}
           placeholder="O que você estudou? Ex: Merge K Sorted Lists / Cap. 5 DDIA"
-          className="min-h-11 flex-1 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722] placeholder:text-[#64748B]"
+          className="min-h-11 flex-1 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722] transition-colors placeholder:text-[#64748B] focus:border-[#0F1722]"
           required
         />
         <button
@@ -207,7 +216,7 @@ export function CheckinForm({
                 <select
                   value={difficulty}
                   onChange={(e) => setDifficulty(e.target.value)}
-                  className="min-h-10 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#0F1722]"
+                  className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-2 text-sm text-[#0F1722]"
                 >
                   <option value="Easy">Fácil (Easy)</option>
                   <option value="Medium">Médio (Medium)</option>
@@ -220,7 +229,7 @@ export function CheckinForm({
                   type="text"
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
-                  className="min-h-10 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#0F1722]"
+                  className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-2 text-sm text-[#0F1722]"
                 />
               </label>
             </div>
@@ -235,7 +244,7 @@ export function CheckinForm({
                   value={bookTitle}
                   onChange={(e) => setBookTitle(e.target.value)}
                   placeholder="Ex: Designing Data-Intensive Applications"
-                  className="min-h-10 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#0F1722]"
+                  className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-2 text-sm text-[#0F1722]"
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-[#334155]">
@@ -245,7 +254,7 @@ export function CheckinForm({
                   min={1}
                   value={pagesRead}
                   onChange={(e) => setPagesRead(e.target.value)}
-                  className="min-h-10 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#0F1722] tabular-nums"
+                  className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-2 text-sm text-[#0F1722] tabular-nums"
                 />
               </label>
             </div>
@@ -260,7 +269,7 @@ export function CheckinForm({
                   value={repository}
                   onChange={(e) => setRepository(e.target.value)}
                   placeholder="ex: iancostag/brainrats"
-                  className="min-h-10 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#0F1722]"
+                  className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-2 text-sm text-[#0F1722]"
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-[#334155]">
@@ -271,7 +280,7 @@ export function CheckinForm({
                   step={5}
                   value={durationMinutes}
                   onChange={(e) => setDurationMinutes(e.target.value)}
-                  className="min-h-10 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#0F1722] tabular-nums"
+                  className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-2 text-sm text-[#0F1722] tabular-nums"
                 />
               </label>
             </div>
@@ -290,7 +299,7 @@ export function CheckinForm({
                       ? "Ex: System Design, Testes, Arquitetura"
                       : "Ex: SQL, ETL, Pandas, Machine Learning"
                   }
-                  className="min-h-10 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#0F1722]"
+                  className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-2 text-sm text-[#0F1722]"
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs font-medium text-[#334155]">
@@ -301,7 +310,7 @@ export function CheckinForm({
                   step={5}
                   value={durationMinutes}
                   onChange={(e) => setDurationMinutes(e.target.value)}
-                  className="min-h-10 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#0F1722] tabular-nums"
+                  className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-2 text-sm text-[#0F1722] tabular-nums"
                 />
               </label>
             </div>
@@ -315,7 +324,7 @@ export function CheckinForm({
               onChange={(e) => setDescription(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Espaço livre para anotações, código ou aprendizados..."
-              className="rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#0F1722] placeholder:text-[#64748B]"
+              className="rounded-lg border border-[#DDD8CE] bg-white px-3 py-2 text-sm text-[#0F1722] placeholder:text-[#64748B]"
             />
           </label>
 
@@ -326,7 +335,7 @@ export function CheckinForm({
               value={evidenceUrl}
               onChange={(e) => setEvidenceUrl(e.target.value)}
               placeholder="https://..."
-              className="min-h-10 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-sm text-[#0F1722]"
+              className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-2 text-sm text-[#0F1722]"
             />
           </label>
         </div>
@@ -345,9 +354,10 @@ export function CheckinForm({
         <p
           role="status"
           aria-live="polite"
-          className="rounded-lg border border-emerald-700/30 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-700/30 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-900"
         >
-          {successMessage}
+          <Check className="h-3.5 w-3.5 shrink-0" />
+          <span>{successMessage}</span>
         </p>
       )}
     </form>

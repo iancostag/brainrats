@@ -89,7 +89,7 @@ export function DiaryTab({ challenges }: DiaryTabProps) {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar por título ou notas (ex: System Design, SQL, Two Sum)..."
               aria-label="Buscar no diário"
-              className="min-h-11 w-full rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] py-2 pl-9 pr-3 text-sm text-[#0F1722] placeholder:text-[#64748B]"
+              className="min-h-11 w-full rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] py-2 pl-9 pr-3 text-sm text-[#0F1722] placeholder:text-[#64748B]"
             />
           </div>
 
@@ -97,7 +97,7 @@ export function DiaryTab({ challenges }: DiaryTabProps) {
             value={source}
             onChange={(e) => setSource(e.target.value)}
             aria-label="Filtrar por origem"
-            className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
+            className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
           >
             <option value="">Todas as origens</option>
             <option value="manual">Manual</option>
@@ -116,7 +116,7 @@ export function DiaryTab({ challenges }: DiaryTabProps) {
                 setDateFrom("");
                 setDateTo("");
               }}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-xs font-semibold text-[#0F1722] hover:border-[#0F1722]"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[#DDD8CE] bg-white px-3 py-2 text-xs font-semibold text-[#0F1722] transition-colors hover:border-[#0F1722]"
             >
               <X className="h-3.5 w-3.5" /> Limpar filtros
             </button>
@@ -129,7 +129,7 @@ export function DiaryTab({ challenges }: DiaryTabProps) {
             <select
               value={challengeId}
               onChange={(e) => setChallengeId(e.target.value)}
-              className="min-h-10 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722]"
+              className="min-h-10 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722]"
             >
               <option value="">Todos os desafios</option>
               {challenges
@@ -148,7 +148,7 @@ export function DiaryTab({ challenges }: DiaryTabProps) {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="min-h-10 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722]"
+              className="min-h-10 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722]"
             />
           </label>
 
@@ -158,7 +158,7 @@ export function DiaryTab({ challenges }: DiaryTabProps) {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="min-h-10 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722]"
+              className="min-h-10 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722]"
             />
           </label>
         </div>
@@ -214,7 +214,14 @@ export function DiaryTab({ challenges }: DiaryTabProps) {
           </button>
         </div>
       ) : loading ? (
-        <p className="text-sm text-[#475569]">Carregando registros do diário...</p>
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-3 rounded-xl border border-[#DDD8CE] bg-white p-6 text-sm text-[#475569]"
+        >
+          <RefreshCw className="h-4 w-4 animate-spin text-[#D94E28]" />
+          <span>Carregando registros do diário...</span>
+        </div>
       ) : diary && diary.items.length > 0 ? (
         <div className="space-y-3">
           {diary.items.map((item) => {

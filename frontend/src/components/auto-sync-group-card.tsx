@@ -121,9 +121,9 @@ export function AutoSyncGroupCard({
           {items.map((item) => (
             <li
               key={item.id}
-              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs"
+              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs transition-colors hover:bg-white"
             >
-              <div className="flex min-w-0 items-center gap-2">
+              <div className="flex min-w-0 items-center gap-1.5">
                 <span
                   className={`truncate font-medium ${
                     item.status === "invalidated"
@@ -139,7 +139,7 @@ export function AutoSyncGroupCard({
                     target="_blank"
                     rel="noreferrer"
                     aria-label={`Abrir link de ${item.title}`}
-                    className="shrink-0 text-[#2563EB] hover:underline"
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-[#2563EB] transition-colors hover:bg-[#EBE7DF]"
                   >
                     <ExternalLink className="h-3 w-3" />
                   </a>

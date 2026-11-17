@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Code2, FolderGit2, Github, Lock, RefreshCw, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Code2, FolderGit2, Github, Lock, RefreshCw, Sparkles } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 
 import {
@@ -169,7 +169,7 @@ export function IntegrationsTab({
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
+            className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
           />
         </label>
 
@@ -180,7 +180,7 @@ export function IntegrationsTab({
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             placeholder="Fale sobre seus objetivos de estudo..."
-            className="rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722] placeholder:text-[#64748B]"
+            className="rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722] placeholder:text-[#64748B]"
           />
         </label>
 
@@ -198,7 +198,7 @@ export function IntegrationsTab({
             value={githubUsername}
             onChange={(e) => setGithubUsername(e.target.value)}
             placeholder="ex: iancostag"
-            className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
+            className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
           />
         </label>
 
@@ -216,7 +216,7 @@ export function IntegrationsTab({
             value={leetcodeUsername}
             onChange={(e) => setLeetcodeUsername(e.target.value)}
             placeholder="ex: seu_usuario_lc"
-            className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
+            className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
           />
         </label>
 
@@ -226,20 +226,30 @@ export function IntegrationsTab({
           </span>
           <select
             value={targetChallengeId}
+            disabled={memberChallenges.length === 0}
             onChange={(e) => setTargetChallengeId(e.target.value)}
-            className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
+            className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] disabled:opacity-60"
           >
-            {memberChallenges.map((ch) => (
-              <option key={ch.id} value={ch.id}>
-                {ch.title}
-              </option>
-            ))}
+            {memberChallenges.length === 0 ? (
+              <option value="">Entre em um desafio primeiro</option>
+            ) : (
+              memberChallenges.map((ch) => (
+                <option key={ch.id} value={ch.id}>
+                  {ch.title}
+                </option>
+              ))
+            )}
           </select>
         </label>
 
         {message && (
-          <p role="status" aria-live="polite" className="text-xs font-semibold text-emerald-800">
-            {message}
+          <p
+            role="status"
+            aria-live="polite"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800"
+          >
+            <Check className="h-3.5 w-3.5 shrink-0" />
+            <span>{message}</span>
           </p>
         )}
         {error && (
@@ -287,7 +297,7 @@ export function IntegrationsTab({
               type="button"
               disabled={syncing}
               onClick={() => void handleSync(true)}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-4 py-2.5 text-sm font-semibold text-[#0F1722] hover:border-[#0F1722] disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-4 py-2.5 text-sm font-semibold text-[#0F1722] hover:border-[#0F1722] disabled:opacity-50"
             >
               <Sparkles className="h-4 w-4 text-[#D94E28]" />
               {syncMode === "simulate" ? "Simulando..." : "Simular Check-in Automático"}
@@ -337,7 +347,7 @@ export function IntegrationsTab({
                   type="button"
                   disabled={loadingRepos}
                   onClick={() => void handleLoadRepos()}
-                  className="min-h-10 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-1.5 text-xs font-semibold text-[#0F1722] hover:border-[#0F1722]"
+                  className="min-h-10 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 text-xs font-semibold text-[#0F1722] hover:border-[#0F1722]"
                 >
                   {loadingRepos ? "Carregando..." : "Carregar meus repositórios"}
                 </button>

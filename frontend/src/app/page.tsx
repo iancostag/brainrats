@@ -69,8 +69,15 @@ export default function HomePage() {
 
   if (checkingSession) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F3F1EC] px-6 text-sm font-medium text-[#475569]">
-        Carregando sua sessão no BrainRats...
+      <main
+        role="status"
+        aria-live="polite"
+        className="flex min-h-screen items-center justify-center bg-[#F3F1EC] px-6"
+      >
+        <div className="flex items-center gap-3 rounded-xl border border-[#DDD8CE] bg-white px-5 py-4 text-sm font-medium text-[#475569]">
+          <RefreshCw className="h-4 w-4 animate-spin text-[#D94E28]" />
+          <span>Carregando sua sessão no BrainRats...</span>
+        </div>
       </main>
     );
   }
@@ -78,7 +85,7 @@ export default function HomePage() {
   if (sessionError) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#F3F1EC] px-6">
-        <div className="flex max-w-md flex-col gap-4 rounded-xl border border-[#DDD8CE] bg-white p-6 text-center shadow-sm">
+        <div className="flex max-w-md flex-col gap-4 rounded-xl border border-[#DDD8CE] bg-white p-6 text-center">
           <h1 className="text-lg font-bold text-[#0F1722]">
             Falha ao conectar com o servidor
           </h1>

@@ -215,7 +215,7 @@ export function CheckinCard({
             onChange={(e) => setEditTitle(e.target.value)}
             onKeyDown={(e) => handleEscape(e, () => setEditing(false))}
             aria-label="Editar título do check-in"
-            className="min-h-10 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722]"
+            className="min-h-10 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722] transition-colors focus:border-[#0F1722]"
             required
           />
           <textarea
@@ -225,7 +225,7 @@ export function CheckinCard({
             onKeyDown={(e) => handleEscape(e, () => setEditing(false))}
             placeholder="Descrição livre..."
             aria-label="Editar descrição do check-in"
-            className="rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722]"
+            className="rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722] transition-colors focus:border-[#0F1722]"
           />
           <div className="flex gap-2">
             <button
@@ -425,7 +425,7 @@ export function CheckinCard({
             onChange={(e) => setReportReason(e.target.value)}
             onKeyDown={(e) => handleEscape(e, () => setShowReportBox(false))}
             placeholder="Descreva o motivo da denúncia..."
-            className="min-h-10 flex-1 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-1.5 text-xs text-[#0F1722]"
+            className="min-h-10 flex-1 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 text-xs text-[#0F1722] transition-colors focus:border-[#0F1722]"
             required
           />
           <div className="flex gap-2">
@@ -472,7 +472,7 @@ export function CheckinCard({
           <button
             type="submit"
             disabled={busy || !commentText.trim()}
-            className="min-h-10 rounded-lg border border-[#CBD5E1] bg-white px-3 py-1.5 text-xs font-semibold text-[#0F1722] hover:border-[#0F1722] disabled:opacity-40"
+            className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-1.5 text-xs font-semibold text-[#0F1722] transition-colors hover:border-[#0F1722] disabled:opacity-40"
           >
             Comentar
           </button>

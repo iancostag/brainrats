@@ -194,7 +194,7 @@ export function ChallengesTab({
               onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
               placeholder="Ex: CODERATS"
               aria-label="Código de convite do grupo"
-              className="min-h-11 flex-1 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 font-mono text-sm uppercase text-[#0F1722]"
+              className="min-h-11 flex-1 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 font-mono text-sm uppercase text-[#0F1722]"
             />
             <button
               type="submit"
@@ -216,7 +216,12 @@ export function ChallengesTab({
 
         <div className="flex flex-col gap-3">
           <h3 className="font-bold text-[#0F1722]">Seus Desafios & Comunidade Aberta</h3>
-          {challenges.map((ch) => (
+          {challenges.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-[#C7C0B3] bg-white/60 p-6 text-center text-sm text-[#475569]">
+              Nenhum desafio encontrado ainda. Crie o primeiro ao lado ou entre com um código de convite!
+            </div>
+          ) : (
+            challenges.map((ch) => (
             <article
               key={ch.id}
               className="flex flex-col gap-3 rounded-xl border border-[#DDD8CE] bg-white p-4"
@@ -276,7 +281,8 @@ export function ChallengesTab({
                 )}
               </div>
             </article>
-          ))}
+          ))
+          )}
         </div>
       </section>
 
@@ -297,7 +303,7 @@ export function ChallengesTab({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex: Clube ESW + LeetCode 2026"
-              className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
+              className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
               required
             />
           </label>
@@ -309,7 +315,7 @@ export function ChallengesTab({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Regras e foco do grupo..."
-              className="rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
+              className="rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
             />
           </label>
 
@@ -319,7 +325,7 @@ export function ChallengesTab({
               <select
                 value={visibility}
                 onChange={(e) => setVisibility(e.target.value as Visibility)}
-                className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
+                className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
               >
                 <option value="private">Privado (convite)</option>
                 <option value="public">Aberto (comunidade)</option>
@@ -331,7 +337,7 @@ export function ChallengesTab({
               <select
                 value={scoringMode}
                 onChange={(e) => setScoringMode(e.target.value as ScoringMode)}
-                className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
+                className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
               >
                 <option value="points">Modo Pontuação (pesos + teto)</option>
                 <option value="checkin">Modo Check-in (1 estudo/dia = 1 pt)</option>
@@ -355,7 +361,7 @@ export function ChallengesTab({
                     e.target.value as "30d" | "90d" | "continuous" | "custom",
                   )
                 }
-                className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
+                className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
               >
                 <option value="30d">30 dias</option>
                 <option value="90d">90 dias</option>
@@ -373,7 +379,7 @@ export function ChallengesTab({
                   setStartDate(e.target.value);
                   setDurationPreset("custom");
                 }}
-                className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
+                className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
               />
             </label>
 
@@ -387,7 +393,7 @@ export function ChallengesTab({
                   setEndDate(e.target.value);
                   setDurationPreset("custom");
                 }}
-                className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722] disabled:opacity-50"
+                className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722] disabled:opacity-50"
               />
             </label>
           </div>
@@ -398,7 +404,7 @@ export function ChallengesTab({
               <select
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
-                className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
+                className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
               >
                 <option value="America/Sao_Paulo">Brasília (GMT-3)</option>
                 <option value="UTC">UTC (GMT+0)</option>
@@ -416,7 +422,7 @@ export function ChallengesTab({
                 max={7}
                 value={restDaysPerWeek}
                 onChange={(e) => setRestDaysPerWeek(e.target.value)}
-                className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722] tabular-nums"
+                className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722] tabular-nums"
               />
             </label>
 
@@ -429,7 +435,7 @@ export function ChallengesTab({
                   max={2000}
                   value={dailyPointsCap}
                   onChange={(e) => setDailyPointsCap(e.target.value)}
-                  className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722] tabular-nums"
+                  className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722] tabular-nums"
                 />
               </label>
             )}
@@ -488,7 +494,7 @@ export function ChallengesTab({
                               };
                               setCatConfigs(next);
                             }}
-                            className="min-h-9 rounded border border-[#CBD5E1] bg-[#FAF9F6] px-2.5 py-1 text-xs text-[#0F1722] tabular-nums"
+                            className="min-h-9 rounded border border-[#DDD8CE] bg-[#FAF9F6] px-2.5 py-1 text-xs text-[#0F1722] tabular-nums"
                           />
                         </label>
                         <label className="flex flex-col gap-1 text-[11px] font-medium text-[#475569]">
@@ -505,7 +511,7 @@ export function ChallengesTab({
                               };
                               setCatConfigs(next);
                             }}
-                            className="min-h-9 rounded border border-[#CBD5E1] bg-[#FAF9F6] px-2.5 py-1 text-xs text-[#0F1722] tabular-nums"
+                            className="min-h-9 rounded border border-[#DDD8CE] bg-[#FAF9F6] px-2.5 py-1 text-xs text-[#0F1722] tabular-nums"
                           />
                         </label>
                       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { BookMarked, Code2, GitBranch, Github, Lock, Sparkles } from "lucide-react";
+import { BookMarked, Code2, Eye, EyeOff, GitBranch, Github, Lock, Sparkles } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 
 import {
@@ -35,6 +35,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
   const [leetcodeUsername, setLeetcodeUsername] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -163,7 +164,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
           </ul>
         </section>
 
-        <section className="w-full max-w-md rounded-xl border border-[#DDD8CE] bg-white p-6 shadow-sm">
+        <section className="w-full max-w-md rounded-xl border border-[#DDD8CE] bg-white p-6">
           <div className="flex items-center gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -209,16 +210,22 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
             )}
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-1 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] p-1 text-xs font-semibold">
+          <div
+            role="tablist"
+            aria-label="Modo de acesso"
+            className="mt-4 grid grid-cols-2 gap-1 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] p-1 text-xs font-semibold"
+          >
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === "login"}
               onClick={() => {
                 setMode("login");
                 setError(null);
               }}
               className={`min-h-9 rounded-md transition ${
                 mode === "login"
-                  ? "bg-white text-[#0F1722] shadow-xs"
+                  ? "bg-white text-[#0F1722] ring-1 ring-[#DDD8CE]"
                   : "text-[#475569] hover:text-[#0F1722]"
               }`}
             >
@@ -226,13 +233,15 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={mode === "register"}
               onClick={() => {
                 setMode("register");
                 setError(null);
               }}
               className={`min-h-9 rounded-md transition ${
                 mode === "register"
-                  ? "bg-white text-[#0F1722] shadow-xs"
+                  ? "bg-white text-[#0F1722] ring-1 ring-[#DDD8CE]"
                   : "text-[#475569] hover:text-[#0F1722]"
               }`}
             >
@@ -249,7 +258,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="ex: iancostag"
                 autoComplete="username"
-                className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] placeholder:text-[#64748B]"
+                className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] transition-colors placeholder:text-[#64748B] focus:border-[#0F1722]"
                 required
               />
             </label>
@@ -258,16 +267,26 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
               <span className="flex items-center gap-1 font-medium text-[#1E293B]">
                 <Lock className="h-3.5 w-3.5" /> Senha *
               </span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={mode === "register" ? "Mínimo 6 caracteres" : "Sua senha"}
-                autoComplete={mode === "register" ? "new-password" : "current-password"}
-                minLength={mode === "register" ? 6 : 1}
-                className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] placeholder:text-[#64748B]"
-                required
-              />
+              <div className="relative flex items-center">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={mode === "register" ? "Mínimo 6 caracteres" : "Sua senha"}
+                  autoComplete={mode === "register" ? "new-password" : "current-password"}
+                  minLength={mode === "register" ? 6 : 1}
+                  className="min-h-11 w-full rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] py-2 pl-3 pr-11 text-[#0F1722] transition-colors placeholder:text-[#64748B] focus:border-[#0F1722]"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-[#64748B] transition-colors hover:bg-[#EBE7DF] hover:text-[#0F1722]"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </label>
 
             {mode === "register" && (
@@ -281,7 +300,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="Ian Costa"
                       autoComplete="name"
-                      className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] placeholder:text-[#64748B]"
+                      className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] transition-colors placeholder:text-[#64748B] focus:border-[#0F1722]"
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-sm">
@@ -292,7 +311,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="voce@exemplo.com"
                       autoComplete="email"
-                      className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] placeholder:text-[#64748B]"
+                      className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] transition-colors placeholder:text-[#64748B] focus:border-[#0F1722]"
                     />
                   </label>
                 </div>
@@ -307,7 +326,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
                       value={githubUsername}
                       onChange={(e) => setGithubUsername(e.target.value)}
                       placeholder="iancostag"
-                      className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] placeholder:text-[#64748B]"
+                      className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] transition-colors placeholder:text-[#64748B] focus:border-[#0F1722]"
                     />
                   </label>
 
@@ -320,7 +339,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
                       value={leetcodeUsername}
                       onChange={(e) => setLeetcodeUsername(e.target.value)}
                       placeholder="usuario_lc"
-                      className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] placeholder:text-[#64748B]"
+                      className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] transition-colors placeholder:text-[#64748B] focus:border-[#0F1722]"
                     />
                   </label>
                 </div>
