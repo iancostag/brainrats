@@ -355,15 +355,15 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
     <div className="min-h-screen bg-[#F3F1EC] text-[#111827]">
       <header className="sticky top-0 z-20 border-b-[3px] border-[#D94E28] bg-[#0F1722] text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6 md:py-3">
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logo-icon.jpg"
               alt="Ícone BrainRats"
-              className="h-9 w-9 rounded-lg border border-slate-700 object-cover"
+              className="h-11 w-11 rounded-xl border border-slate-700 object-cover sm:h-12 sm:w-12"
             />
             <div>
-              <span className="text-sm font-extrabold tracking-tight text-white sm:text-base">
+              <span className="text-base font-extrabold tracking-tight text-white sm:text-lg">
                 BrainRats
               </span>
               <span className="block font-mono text-[11px] text-slate-300">

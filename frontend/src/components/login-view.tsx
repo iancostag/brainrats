@@ -108,9 +108,9 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
             <img
               src="/logo-icon.jpg"
               alt="Ícone BrainRats"
-              className="h-9 w-9 rounded-lg border border-slate-700 object-cover"
+              className="h-11 w-11 rounded-xl border border-slate-700 object-cover sm:h-12 sm:w-12"
             />
-            <span className="text-lg font-extrabold tracking-tight">BrainRats</span>
+            <span className="text-xl font-extrabold tracking-tight">BrainRats</span>
           </div>
           <span className="font-mono text-xs text-slate-300">PT-BR · WEB / PWA</span>
         </div>
@@ -122,7 +122,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
           <img
             src="/logo-wordmark.png"
             alt="BrainRats"
-            className="h-12 w-auto self-start object-contain sm:h-14"
+            className="-my-3 h-24 w-auto max-w-full self-start object-contain object-left mix-blend-multiply sm:-my-5 sm:h-32"
           />
 
           <h1 className="max-w-xl text-3xl font-extrabold tracking-tight text-[#0F1722] sm:text-5xl sm:leading-[1.08]">
@@ -164,12 +164,12 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
         </section>
 
         <section className="w-full max-w-md rounded-xl border border-[#DDD8CE] bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logo-emblem.jpg"
               alt="Emblema BrainRats"
-              className="h-12 w-12 shrink-0 rounded-full border border-[#DDD8CE] object-cover"
+              className="h-16 w-16 shrink-0 rounded-full border border-[#DDD8CE] object-cover sm:h-20 sm:w-20"
             />
             <div>
               <h2 className="text-xl font-bold text-[#0F1722]">Acesse sua conta</h2>
