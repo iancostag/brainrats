@@ -1,17 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Archivo, JetBrains_Mono } from "next/font/google";
 
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const plusJakarta = Plus_Jakarta_Sans({
+const archivo = Archivo({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-sans",
   display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
+  weight: ["500", "700"],
   variable: "--font-mono",
   display: "swap",
 });
@@ -24,7 +26,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#09090b",
+  themeColor: "#0F1722",
 };
 
 export default function RootLayout({
@@ -33,11 +35,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="pt-BR"
-      className={`${plusJakarta.variable} ${jetbrainsMono.variable}`}
-    >
-      <body className="min-h-screen bg-zinc-950 font-sans text-zinc-50 antialiased">
+    <html lang="pt-BR" className={`${archivo.variable} ${jetbrainsMono.variable}`}>
+      <body className="min-h-screen bg-[#F3F1EC] font-sans text-[#111827] antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>

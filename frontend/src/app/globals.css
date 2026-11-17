@@ -6,37 +6,46 @@
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+  --surface-shell: #0f1722;
+  --surface-shell-elevated: #182232;
+  --surface-canvas: #f3f1ec;
+  --surface-card: #ffffff;
+  --surface-well: #faf9f6;
+  --border-lane: #ddd8ce;
+  --ink-primary: #111827;
+  --ink-secondary: #475569;
+  --accent-track: #d94e28;
+  --accent-track-hover: #c2411e;
 }
 
 body {
-  background-color: #09090b;
-  color: #fafafa;
-  caret-color: #34d399;
+  background-color: var(--surface-canvas);
+  color: var(--ink-primary);
+  caret-color: var(--accent-track);
 }
 
 ::selection {
-  background-color: rgba(16, 185, 129, 0.28);
-  color: #ecfdf5;
+  background-color: rgba(217, 78, 40, 0.2);
+  color: #0f1722;
 }
 
-/* Subtle dark scrollbar matching the zinc/emerald palette */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #09090b;
+  background: #ebe7df;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: #bdb5a7;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: #948c7e;
 }
 
 a {
@@ -48,6 +57,6 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid #34d399;
+  outline: 2px solid #d94e28;
   outline-offset: 2px;
 }

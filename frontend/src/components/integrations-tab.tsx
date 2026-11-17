@@ -82,7 +82,6 @@ export function IntegrationsTab({
     setMessage(null);
     setSyncing(true);
     try {
-      // Save unsaved integration fields automatically so the user doesn't have to remember saving first.
       if (!simulate) {
         await persistSettings();
       }
@@ -103,26 +102,26 @@ export function IntegrationsTab({
     <div className="grid gap-8 lg:grid-cols-2">
       <form
         onSubmit={handleSave}
-        className="flex flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-900/70 p-5"
+        className="flex flex-col gap-4 rounded-xl border border-[#DDD8CE] bg-white p-5"
       >
-        <h3 className="font-semibold text-zinc-100">Perfil e Contas Vinculadas</h3>
+        <h3 className="font-bold text-[#0F1722]">Perfil e Contas Vinculadas</h3>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-300">Nome de exibição</span>
+          <span className="font-medium text-[#1E293B]">Nome de exibição</span>
           <input
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            className="min-h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+            className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
           />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="flex items-center justify-between gap-2 text-zinc-300">
+          <span className="flex items-center justify-between gap-2 font-medium text-[#1E293B]">
             <span className="flex items-center gap-1.5">
               <Github className="h-4 w-4" /> GitHub Username (eventos públicos)
             </span>
-            <span className="text-[11px] text-zinc-500">
+            <span className="font-mono text-[11px] text-[#64748B]">
               {formatDateTimeBr(ghIntegration?.last_synced_at ?? null)}
             </span>
           </span>
@@ -131,16 +130,16 @@ export function IntegrationsTab({
             value={githubUsername}
             onChange={(e) => setGithubUsername(e.target.value)}
             placeholder="ex: iancostag"
-            className="min-h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+            className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
           />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="flex items-center justify-between gap-2 text-zinc-300">
+          <span className="flex items-center justify-between gap-2 font-medium text-[#1E293B]">
             <span className="flex items-center gap-1.5">
               <Code2 className="h-4 w-4" /> LeetCode Username (Accepted)
             </span>
-            <span className="text-[11px] text-zinc-500">
+            <span className="font-mono text-[11px] text-[#64748B]">
               {formatDateTimeBr(lcIntegration?.last_synced_at ?? null)}
             </span>
           </span>
@@ -149,16 +148,18 @@ export function IntegrationsTab({
             value={leetcodeUsername}
             onChange={(e) => setLeetcodeUsername(e.target.value)}
             placeholder="ex: seu_usuario_lc"
-            className="min-h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+            className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
           />
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-zinc-300">Desafio alvo da publicação automática</span>
+          <span className="font-medium text-[#1E293B]">
+            Desafio alvo da publicação automática
+          </span>
           <select
             value={targetChallengeId}
             onChange={(e) => setTargetChallengeId(e.target.value)}
-            className="min-h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+            className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-[#0F1722]"
           >
             {memberChallenges.map((ch) => (
               <option key={ch.id} value={ch.id}>
@@ -169,14 +170,14 @@ export function IntegrationsTab({
         </label>
 
         {message && (
-          <p role="status" aria-live="polite" className="text-xs text-emerald-400">
+          <p role="status" aria-live="polite" className="text-xs font-semibold text-emerald-800">
             {message}
           </p>
         )}
         {error && (
           <p
             role="alert"
-            className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+            className="rounded-lg border border-red-600/35 bg-red-50 px-3 py-2 text-xs font-medium text-red-900"
           >
             {error}
           </p>
@@ -185,19 +186,21 @@ export function IntegrationsTab({
         <button
           type="submit"
           disabled={saving}
-          className="min-h-11 w-fit rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-emerald-400 disabled:opacity-50"
+          className="min-h-11 w-fit rounded-lg bg-[#0F1722] px-4 py-2 text-sm font-bold text-white hover:bg-[#1E293B] disabled:opacity-50"
         >
           {saving ? "Salvando..." : "Salvar Configurações"}
         </button>
       </form>
 
-      <section className="flex flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-900/70 p-5">
-        <h3 className="font-semibold text-zinc-100">Sincronização Automática</h3>
-        <p className="text-sm leading-relaxed text-zinc-400">
+      <section className="flex flex-col gap-4 rounded-xl border border-[#DDD8CE] bg-white p-5">
+        <h3 className="font-bold text-[#0F1722]">Sincronização Automática</h3>
+        <p className="text-sm leading-relaxed text-[#475569]">
           Busca os últimos commits públicos do GitHub e submissões{" "}
-          <code className="font-mono text-zinc-200">Accepted</code> do LeetCode, publicando
-          automaticamente no desafio alvo (com deduplicação por evento). Depois você pode editar
-          título e notas direto no feed.
+          <code className="rounded bg-[#FAF9F6] px-1 py-0.5 font-mono text-xs text-[#0F1722]">
+            Accepted
+          </code>{" "}
+          do LeetCode, publicando automaticamente no desafio alvo (com deduplicação por evento).
+          Depois você pode editar título e notas direto no feed.
         </p>
 
         <div className="flex flex-wrap gap-3">
@@ -205,7 +208,7 @@ export function IntegrationsTab({
             type="button"
             disabled={syncing}
             onClick={() => void handleSync(false)}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-emerald-400 disabled:opacity-50"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#D94E28] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#C2411E] disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
             Sincronizar GitHub & LeetCode Agora
@@ -215,9 +218,9 @@ export function IntegrationsTab({
             type="button"
             disabled={syncing}
             onClick={() => void handleSync(true)}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm font-medium text-zinc-200 hover:border-emerald-500/50"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-4 py-2.5 text-sm font-semibold text-[#0F1722] hover:border-[#0F1722]"
           >
-            <Sparkles className="h-4 w-4 text-emerald-400" />
+            <Sparkles className="h-4 w-4 text-[#D94E28]" />
             Simular Check-in Automático
           </button>
         </div>
@@ -226,13 +229,13 @@ export function IntegrationsTab({
           <div
             role="status"
             aria-live="polite"
-            className="flex flex-col gap-3 rounded-lg border border-zinc-800 bg-zinc-950 p-4 text-xs text-zinc-300"
+            className="flex flex-col gap-3 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] p-4 text-xs text-[#334155]"
           >
-            <p className="font-semibold text-emerald-400">
+            <p className="font-bold text-[#0F1722]">
               {syncResult.created_count} check-in(s) publicado(s) · {syncResult.skipped_duplicates}{" "}
               duplicado(s) ignorado(s)
             </p>
-            <ul className="list-disc space-y-1 pl-4 text-zinc-400">
+            <ul className="list-disc space-y-1 pl-4 text-[#475569]">
               {syncResult.details.map((line, i) => (
                 <li key={i}>{line}</li>
               ))}
@@ -240,7 +243,7 @@ export function IntegrationsTab({
             <button
               type="button"
               onClick={onGoToActive}
-              className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 font-medium text-emerald-300 hover:bg-emerald-500/20"
+              className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg bg-[#0F1722] px-3 py-1.5 font-semibold text-white hover:bg-[#1E293B]"
             >
               Ver no feed do desafio <ArrowRight className="h-3.5 w-3.5" />
             </button>

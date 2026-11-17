@@ -4,8 +4,8 @@
   "description": "Desafios em grupo, constância e diário de estudos para programação.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#09090b",
-  "theme_color": "#10b981",
+  "background_color": "#F3F1EC",
+  "theme_color": "#0F1722",
   "icons": [
     {
       "src": "/icon.svg",

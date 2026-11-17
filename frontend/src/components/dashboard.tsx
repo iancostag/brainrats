@@ -35,10 +35,7 @@ import {
   type CheckIn,
   type User,
 } from "@/lib/api";
-import {
-  CATEGORY_META,
-  formatTimezoneLabel,
-} from "@/lib/categories";
+import { CATEGORY_META, formatTimezoneLabel } from "@/lib/categories";
 
 type TabId = "active" | "explore" | "diary" | "integrations";
 
@@ -50,7 +47,9 @@ interface DashboardProps {
 
 const WEEKDAY_SHORT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
-function getChallengeWeekDays(timezone: string): Array<{ iso: string; label: string; isToday: boolean }> {
+function getChallengeWeekDays(
+  timezone: string,
+): Array<{ iso: string; label: string; isToday: boolean }> {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,
     year: "numeric",
@@ -62,7 +61,6 @@ function getChallengeWeekDays(timezone: string): Array<{ iso: string; label: str
   const d = Number(parts.find((p) => p.type === "day")?.value ?? 1);
   const todayUtc = new Date(Date.UTC(y, m - 1, d));
   const todayIso = todayUtc.toISOString().slice(0, 10);
-  // getUTCDay(): 0 = Sun -> offset 6, 1 = Mon -> offset 0
   const mondayOffset = (todayUtc.getUTCDay() + 6) % 7;
   const monday = new Date(todayUtc.getTime() - mondayOffset * 86_400_000);
 
@@ -208,9 +206,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
     if (activeChallengeId) {
       void fetchChallengeDetail(activeChallengeId)
         .then(setDetail)
-        .catch(() => {
-          // Keep current view stable if background leaderboard refresh fails.
-        });
+        .catch(() => {});
     }
   }
 
@@ -224,6 +220,8 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
     return getChallengeWeekDays(tz);
   }, [activeChallenge?.timezone]);
 
+  const todayIso = weekDays.find((w) => w.isToday)?.iso ?? "";
+
   const userActiveDates = useMemo(() => {
     const dates = new Set<string>();
     for (const item of feed) {
@@ -234,10 +232,23 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
     return dates;
   }, [feed, user.id]);
 
+  const userPointsToday = useMemo(() => {
+    return feed
+      .filter(
+        (item) =>
+          item.user_id === user.id &&
+          item.status === "valid" &&
+          item.study_date === todayIso,
+      )
+      .reduce((sum, item) => sum + item.points_awarded, 0);
+  }, [feed, todayIso, user.id]);
+
   const userRestSet = useMemo(
     () => new Set(detail?.user_rest_dates ?? []),
     [detail?.user_rest_dates],
   );
+
+  const myLeaderboardEntry = detail?.leaderboard.find((e) => e.user_id === user.id);
 
   const reportedCount = useMemo(
     () => feed.filter((c) => c.reports_count > 0).length,
@@ -260,25 +271,27 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
   const hasLinkedIntegrations = user.integrations.length > 0;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <header className="sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950/95 backdrop-blur">
+    <div className="min-h-screen bg-[#F3F1EC] text-[#111827]">
+      <header className="sticky top-0 z-20 border-b-[3px] border-[#D94E28] bg-[#0F1722] text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6 md:py-3">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
+            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[#D94E28] text-white">
               <Flame className="h-4 w-4" />
             </div>
             <div>
-              <span className="text-sm font-bold tracking-tight text-zinc-50 sm:text-base">
+              <span className="text-sm font-extrabold tracking-tight text-white sm:text-base">
                 BrainRats
               </span>
-              <span className="block font-mono text-[11px] text-zinc-400">@{user.username}</span>
+              <span className="block font-mono text-[11px] text-slate-300">
+                @{user.username}
+              </span>
             </div>
           </div>
 
           <nav
             role="tablist"
             aria-label="Navegação principal"
-            className="hidden items-center gap-1.5 md:flex"
+            className="hidden items-center gap-1 md:flex"
           >
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -290,10 +303,10 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                   role="tab"
                   aria-selected={active}
                   onClick={() => switchTab(item.id)}
-                  className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  className={`inline-flex min-h-10 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold transition ${
                     active
-                      ? "bg-emerald-500/15 text-emerald-300"
-                      : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+                      ? "border-b-2 border-[#D94E28] bg-[#182232] text-white"
+                      : "text-slate-300 hover:bg-[#182232]/70 hover:text-white"
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -309,7 +322,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
               clearStoredToken();
               onLogout();
             }}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-zinc-800 px-3 py-1.5 text-xs text-zinc-300 hover:border-zinc-700 hover:text-zinc-100"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-slate-700 bg-[#182232] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 hover:text-white"
           >
             <LogOut className="h-3.5 w-3.5" /> Sair
           </button>
@@ -320,13 +333,13 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
         {challengesError && (
           <div
             role="alert"
-            className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200"
+            className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-600/35 bg-red-50 p-4 text-sm text-red-900"
           >
             <span>{challengesError}</span>
             <button
               type="button"
               onClick={() => void loadChallenges()}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-100"
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-red-700 px-3 py-1.5 text-xs font-semibold text-white"
             >
               <RefreshCw className="h-3.5 w-3.5" /> Tentar novamente
             </button>
@@ -335,22 +348,28 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
 
         <div className={tab === "active" ? "block" : "hidden"}>
           <div className="flex flex-col gap-6">
-            <section className="flex flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <div className="flex items-center gap-2">
-                    <label htmlFor="challenge-switcher" className="text-xs text-zinc-400">
+            {/* Signature Move: Faixa de Splits Semanais & Painel do Desafio */}
+            <section className="flex flex-col gap-4 rounded-xl border border-[#DDD8CE] bg-white p-4 sm:p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label
+                      htmlFor="challenge-switcher"
+                      className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#475569]"
+                    >
                       Desafio ativo
                     </label>
                     {(loadingDetail || loadingChallenges) && (
-                      <span className="text-[11px] text-emerald-400">Atualizando...</span>
+                      <span className="font-mono text-[11px] font-semibold text-[#D94E28]">
+                        Atualizando...
+                      </span>
                     )}
                   </div>
                   <select
                     id="challenge-switcher"
                     value={activeChallengeId}
                     onChange={(e) => setActiveChallengeId(e.target.value)}
-                    className="min-h-11 max-w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm font-semibold text-zinc-100"
+                    className="min-h-11 max-w-full rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-base font-bold text-[#0F1722]"
                   >
                     {challenges.map((ch) => (
                       <option key={ch.id} value={ch.id}>
@@ -358,36 +377,71 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       </option>
                     ))}
                   </select>
+                  {activeChallenge && (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-[#475569] tabular-nums">
+                      <span className="font-bold text-[#D94E28]">
+                        {activeChallenge.scoring_mode === "checkin"
+                          ? `HOJE ${userPointsToday > 0 ? "CONCLUÍDO (1/1)" : "PENDENTE (0/1)"}`
+                          : `HOJE ${userPointsToday}/${activeChallenge.daily_points_cap} PTS`}
+                      </span>
+                      <span>·</span>
+                      <span>
+                        OFENSIVA {myLeaderboardEntry?.current_streak ?? 0}D
+                      </span>
+                      <span>·</span>
+                      <span>{formatTimezoneLabel(activeChallenge.timezone)}</span>
+                    </div>
+                  )}
                 </div>
 
-                {activeChallenge && (
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="whitespace-nowrap rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 font-medium text-emerald-300">
-                      {activeChallenge.scoring_mode === "checkin"
-                        ? "Modo Check-in (1/dia)"
-                        : `Modo Pontuação (teto ${activeChallenge.daily_points_cap}/dia)`}
+                {detail?.challenge.is_member && (
+                  <div className="flex flex-col gap-1.5">
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#64748B]">
+                      Splits da Semana
                     </span>
-                    <span className="whitespace-nowrap rounded-full border border-zinc-700 px-3 py-1 text-zinc-300">
-                      {formatTimezoneLabel(activeChallenge.timezone)}
-                    </span>
+                    <div className="grid grid-cols-7 gap-1.5 text-center">
+                      {weekDays.map((day) => {
+                        const studied = userActiveDates.has(day.iso);
+                        const rested = userRestSet.has(day.iso);
+                        let boxStyle = "border-[#DDD8CE] bg-[#FAF9F6] text-[#64748B]";
+                        let statusTitle = "Sem registro";
+                        if (studied) {
+                          boxStyle = "border-[#D94E28] bg-[#D94E28] text-white";
+                          statusTitle = "Estudado";
+                        } else if (rested) {
+                          boxStyle = "border-[#94A3B8] bg-[#E2E8F0] text-[#0F1722]";
+                          statusTitle = "Dia de descanso";
+                        }
+                        return (
+                          <div
+                            key={day.iso}
+                            title={`${day.label} (${day.iso}): ${statusTitle}`}
+                            className={`flex min-w-10 flex-col items-center gap-0.5 rounded-md border px-1.5 py-1.5 text-[11px] ${boxStyle} ${
+                              day.isToday ? "ring-2 ring-[#0F1722] ring-offset-1" : ""
+                            }`}
+                          >
+                            <span className="font-bold">{day.label}</span>
+                            <span className="font-mono text-[10px]">
+                              {studied ? "OK" : rested ? "REST" : "—"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
 
-              {activeChallenge?.description && (
-                <p className="text-sm text-zinc-400">{activeChallenge.description}</p>
-              )}
-
               {activeChallenge && (
-                <div className="flex flex-wrap items-center gap-2 border-t border-zinc-800/80 pt-3 text-xs">
+                <div className="flex flex-wrap items-center gap-2 border-t border-[#EBE7DF] pt-3 text-xs">
                   <button
                     type="button"
                     onClick={() => handleCopyInvite(activeChallenge.invite_code)}
-                    className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 font-mono text-zinc-200 hover:border-emerald-500/50"
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 font-mono font-semibold text-[#0F1722] hover:border-[#0F1722]"
                   >
                     {copiedCode ? (
                       <>
-                        <Check className="h-3.5 w-3.5 text-emerald-400" /> Código copiado
+                        <Check className="h-3.5 w-3.5 text-emerald-700" /> Código copiado
                       </>
                     ) : (
                       <>
@@ -401,7 +455,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       type="button"
                       onClick={() => setConfirmRestDay((prev) => !prev)}
                       disabled={detail.rest_days_remaining_this_week <= 0}
-                      className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 font-medium text-amber-200 hover:bg-amber-500/20 disabled:opacity-40"
+                      className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-amber-700/35 bg-amber-50 px-3 py-1.5 font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-40"
                     >
                       <Coffee className="h-3.5 w-3.5" />
                       Descansar hoje ({detail.rest_days_remaining_this_week}/sem)
@@ -414,7 +468,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                         type="button"
                         disabled={quickSyncing}
                         onClick={() => void handleQuickSync()}
-                        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 font-medium text-zinc-200 hover:border-emerald-500/50 disabled:opacity-50"
+                        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 font-semibold text-[#0F1722] hover:border-[#0F1722] disabled:opacity-50"
                       >
                         <RefreshCw
                           className={`h-3.5 w-3.5 ${quickSyncing ? "animate-spin" : ""}`}
@@ -425,7 +479,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       <button
                         type="button"
                         onClick={() => switchTab("integrations")}
-                        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-zinc-800 px-3 py-1.5 text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+                        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 font-medium text-[#475569] hover:border-[#0F1722] hover:text-[#0F1722]"
                       >
                         <GitMerge className="h-3.5 w-3.5" /> Conectar GitHub/LeetCode
                       </button>
@@ -436,7 +490,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       type="button"
                       aria-expanded={showRules}
                       onClick={() => setShowRules((prev) => !prev)}
-                      className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2.5 py-1.5 text-zinc-300 hover:bg-zinc-800"
+                      className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2.5 py-1.5 font-medium text-[#475569] hover:bg-[#FAF9F6] hover:text-[#0F1722]"
                     >
                       <Info className="h-3.5 w-3.5" />
                       Regras e pesos
@@ -451,7 +505,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
               )}
 
               {confirmRestDay && detail && (
-                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-950/20 p-3 text-xs text-amber-100">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-700/35 bg-amber-50 p-3 text-xs text-amber-950">
                   <span>
                     Confirmar <strong>dia de descanso</strong> para hoje? Ele preserva sua
                     ofensiva sem somar pontos (restam{" "}
@@ -463,14 +517,14 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       type="button"
                       disabled={restingBusy}
                       onClick={() => void handleConfirmRestDay()}
-                      className="min-h-9 rounded-lg bg-amber-500 px-3 py-1.5 font-semibold text-zinc-950 hover:bg-amber-400"
+                      className="min-h-9 rounded-lg bg-[#0F1722] px-3 py-1.5 font-semibold text-white"
                     >
                       {restingBusy ? "Registrando..." : "Confirmar descanso"}
                     </button>
                     <button
                       type="button"
                       onClick={() => setConfirmRestDay(false)}
-                      className="min-h-9 rounded-lg border border-zinc-700 px-3 py-1.5 text-zinc-300"
+                      className="min-h-9 rounded-lg border border-[#DDD8CE] bg-white px-3 py-1.5 font-medium text-[#334155]"
                     >
                       Cancelar
                     </button>
@@ -479,27 +533,19 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
               )}
 
               {restFeedback && (
-                <p
-                  role="status"
-                  aria-live="polite"
-                  className="text-xs text-amber-300"
-                >
+                <p role="status" aria-live="polite" className="text-xs font-semibold text-amber-900">
                   {restFeedback}
                 </p>
               )}
 
               {quickSyncMsg && (
-                <p
-                  role="status"
-                  aria-live="polite"
-                  className="text-xs text-emerald-300"
-                >
+                <p role="status" aria-live="polite" className="text-xs font-semibold text-[#D94E28]">
                   {quickSyncMsg}
                 </p>
               )}
 
               {showRules && detail && (
-                <div className="grid gap-2 rounded-lg border border-zinc-800 bg-zinc-950 p-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-2 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] p-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
                   {detail.category_configs
                     .filter((c) => c.is_enabled)
                     .map((cfg) => {
@@ -507,12 +553,12 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       return (
                         <div
                           key={cfg.category_id}
-                          className="flex items-center justify-between gap-2 rounded-md border border-zinc-800/80 px-2.5 py-1.5"
+                          className="flex items-center justify-between gap-2 rounded-md border border-[#DDD8CE] bg-white px-2.5 py-1.5"
                         >
-                          <span className="font-medium text-zinc-200">
+                          <span className="font-semibold text-[#0F1722]">
                             {meta?.shortLabel ?? cfg.name}
                           </span>
-                          <span className="font-mono text-zinc-400 tabular-nums">
+                          <span className="font-mono text-[#475569] tabular-nums">
                             {detail.challenge.scoring_mode === "checkin"
                               ? "1 pt/dia"
                               : `${cfg.base_points} base · máx ${cfg.daily_cap}/dia`}
@@ -527,19 +573,19 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
             {detailError ? (
               <div
                 role="alert"
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-600/35 bg-red-50 p-4 text-sm text-red-900"
               >
                 <span>{detailError}</span>
                 <button
                   type="button"
                   onClick={() => void loadActiveChallengeData(activeChallengeId)}
-                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-100"
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-red-700 px-3 py-1.5 text-xs font-semibold text-white"
                 >
                   <RefreshCw className="h-3.5 w-3.5" /> Tentar novamente
                 </button>
               </div>
             ) : loadingDetail && !detail ? (
-              <p className="text-sm text-zinc-400">Carregando desafio...</p>
+              <p className="text-sm text-[#475569]">Carregando desafio...</p>
             ) : detail ? (
               <div className="grid gap-6 lg:grid-cols-3">
                 <div className="flex flex-col gap-6 lg:col-span-2">
@@ -556,12 +602,12 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       }}
                     />
                   ) : (
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 text-sm text-zinc-300">
+                    <div className="rounded-xl border border-[#DDD8CE] bg-white p-5 text-sm text-[#334155]">
                       Você está visualizando um desafio aberto. Vá em{" "}
                       <button
                         type="button"
                         onClick={() => switchTab("explore")}
-                        className="font-semibold text-emerald-400 underline"
+                        className="font-bold text-[#D94E28] underline"
                       >
                         Explorar & Criar
                       </button>{" "}
@@ -571,8 +617,8 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
 
                   <section className="flex flex-col gap-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="font-semibold text-zinc-100">
-                        Feed do Grupo ({filteredFeed.length})
+                      <h3 className="font-bold text-[#0F1722]">
+                        Entregas do Grupo ({filteredFeed.length})
                       </h3>
                       <div
                         className="flex flex-wrap gap-1.5"
@@ -582,10 +628,10 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                         <button
                           type="button"
                           onClick={() => setFeedFilter("all")}
-                          className={`min-h-8 rounded-lg border px-2.5 py-1 text-xs ${
+                          className={`min-h-8 rounded-lg border px-2.5 py-1 text-xs font-semibold ${
                             feedFilter === "all"
-                              ? "border-emerald-500 bg-emerald-500/15 text-emerald-300"
-                              : "border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-200"
+                              ? "border-[#0F1722] bg-[#0F1722] text-white"
+                              : "border-[#DDD8CE] bg-white text-[#475569] hover:text-[#0F1722]"
                           }`}
                         >
                           Todas
@@ -600,10 +646,10 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                                 key={cfg.slug}
                                 type="button"
                                 onClick={() => setFeedFilter(cfg.slug)}
-                                className={`min-h-8 rounded-lg border px-2.5 py-1 text-xs ${
+                                className={`min-h-8 rounded-lg border px-2.5 py-1 text-xs font-semibold ${
                                   active
                                     ? meta.activeButtonClass
-                                    : "border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-200"
+                                    : "border-[#DDD8CE] bg-white text-[#475569] hover:text-[#0F1722]"
                                 }`}
                               >
                                 {meta.shortLabel}
@@ -614,10 +660,10 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                           <button
                             type="button"
                             onClick={() => setFeedFilter("reported")}
-                            className={`inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 py-1 text-xs ${
+                            className={`inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold ${
                               feedFilter === "reported"
-                                ? "border-amber-500 bg-amber-500/15 text-amber-200"
-                                : "border-amber-500/30 bg-zinc-950 text-amber-300"
+                                ? "border-amber-700 bg-amber-100 text-amber-950"
+                                : "border-amber-600/35 bg-amber-50 text-amber-900"
                             }`}
                           >
                             <ShieldAlert className="h-3 w-3" /> Denunciados ({reportedCount})
@@ -627,7 +673,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                     </div>
 
                     {filteredFeed.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-zinc-800 p-8 text-center text-sm text-zinc-400">
+                      <div className="rounded-xl border border-dashed border-[#C7C0B3] bg-white/60 p-8 text-center text-sm text-[#475569]">
                         Nenhum check-in encontrado para este filtro.
                       </div>
                     ) : (
@@ -646,49 +692,17 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                   </section>
                 </div>
 
+                {/* Official Timing Board (Placar Oficial) in deep cinder-slate */}
                 <aside className="flex flex-col gap-4">
-                  {detail.challenge.is_member && (
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-4">
-                      <h3 className="text-sm font-semibold text-zinc-100">
-                        Sua Semana de Constância
-                      </h3>
-                      <div className="mt-3 grid grid-cols-7 gap-1.5 text-center">
-                        {weekDays.map((day) => {
-                          const studied = userActiveDates.has(day.iso);
-                          const rested = userRestSet.has(day.iso);
-                          let boxStyle = "border-zinc-800 bg-zinc-950 text-zinc-500";
-                          let statusTitle = "Sem registro";
-                          if (studied) {
-                            boxStyle =
-                              "border-emerald-500/50 bg-emerald-500/15 text-emerald-300";
-                            statusTitle = "Estudado";
-                          } else if (rested) {
-                            boxStyle = "border-amber-500/50 bg-amber-500/15 text-amber-200";
-                            statusTitle = "Dia de descanso";
-                          }
-                          return (
-                            <div
-                              key={day.iso}
-                              title={`${day.label} (${day.iso}): ${statusTitle}`}
-                              className={`flex flex-col items-center gap-1 rounded-lg border py-2 text-[11px] ${boxStyle} ${
-                                day.isToday ? "ring-1 ring-zinc-400" : ""
-                              }`}
-                            >
-                              <span className="font-medium">{day.label}</span>
-                              <span className="font-mono text-[10px]">
-                                {studied ? "OK" : rested ? "Zzz" : "—"}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-5">
-                    <h3 className="flex items-center gap-2 font-semibold text-zinc-100">
-                      <Trophy className="h-4 w-4 text-amber-400" />
-                      Ranking do Desafio
+                  <div className="rounded-xl bg-[#0F1722] p-5 text-white shadow-sm">
+                    <h3 className="flex items-center justify-between gap-2 text-sm font-bold uppercase tracking-wider text-slate-300">
+                      <span className="flex items-center gap-2">
+                        <Trophy className="h-4 w-4 text-[#D94E28]" />
+                        Placar Oficial
+                      </span>
+                      <span className="font-mono text-[11px] text-slate-400">
+                        {detail.leaderboard.length} atletas
+                      </span>
                     </h3>
                     <div className="mt-4 space-y-2.5">
                       {detail.leaderboard.map((entry, idx) => (
@@ -696,38 +710,38 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                           key={entry.user_id}
                           className={`flex items-center justify-between gap-2 rounded-lg border p-3 ${
                             entry.user_id === user.id
-                              ? "border-emerald-500/40 bg-emerald-500/10"
-                              : "border-zinc-800 bg-zinc-950"
+                              ? "border-[#D94E28] bg-[#1F2633]"
+                              : "border-slate-800 bg-[#182232]"
                           }`}
                         >
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs font-bold text-zinc-400 tabular-nums">
+                              <span className="font-mono text-xs font-bold text-[#FF8A65] tabular-nums">
                                 #{idx + 1}
                               </span>
-                              <span className="truncate text-sm font-medium text-zinc-100">
+                              <span className="truncate text-sm font-semibold text-white">
                                 {entry.display_name}
                               </span>
                               {entry.role === "admin" && (
-                                <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-300">
+                                <span className="rounded bg-slate-700 px-1.5 py-0.5 font-mono text-[10px] text-slate-200">
                                   admin
                                 </span>
                               )}
                             </div>
-                            <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-zinc-400 tabular-nums">
+                            <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-300 tabular-nums">
                               <span className="inline-flex items-center gap-1">
-                                <Flame className="h-3 w-3 text-amber-400" />
-                                {entry.current_streak}d ofensiva
+                                <Flame className="h-3 w-3 text-[#FF8A65]" />
+                                {entry.current_streak}d
                               </span>
                               <span>· {entry.active_days}d ativos</span>
-                              <span>· {entry.rest_days_used_this_week} descanso(s)</span>
+                              <span>· {entry.rest_days_used_this_week} rest</span>
                             </p>
                           </div>
-                          <span className="shrink-0 font-mono text-sm font-bold text-emerald-400 tabular-nums">
+                          <span className="shrink-0 font-mono text-sm font-bold text-white tabular-nums">
                             {entry.total_points}{" "}
-                            {detail.challenge.scoring_mode === "checkin"
-                              ? "chk"
-                              : "pts"}
+                            <span className="text-xs font-normal text-slate-300">
+                              {detail.challenge.scoring_mode === "checkin" ? "chk" : "pts"}
+                            </span>
                           </span>
                         </div>
                       ))}
@@ -775,7 +789,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
       <nav
         role="tablist"
         aria-label="Navegação móvel"
-        className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-4 border-t border-zinc-800 bg-zinc-950/95 backdrop-blur md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-4 border-t border-slate-800 bg-[#0F1722] text-white md:hidden"
       >
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -787,8 +801,10 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
               role="tab"
               aria-selected={active}
               onClick={() => switchTab(item.id)}
-              className={`flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-medium transition ${
-                active ? "text-emerald-400" : "text-zinc-400 hover:text-zinc-200"
+              className={`flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-semibold transition ${
+                active
+                  ? "border-t-2 border-[#D94E28] text-[#FF8A65]"
+                  : "text-slate-300 hover:text-white"
               }`}
             >
               <Icon className="h-4 w-4" />

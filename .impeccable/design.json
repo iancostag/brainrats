@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "name": "BrainRats — Placar de Pista & Treino",
+  "direction": {
+    "seed": "seed:a831a115e8dac09f",
+    "surface": "frontend/src/app/page.tsx",
+    "mode": "operate"
+  },
+  "focusRing": "2px solid #d94e28",
+  "selection": {
+    "background": "rgba(217, 78, 40, 0.2)",
+    "color": "#0f1722"
+  },
+  "categoryLanes": {
+    "leetcode": { "bg": "#fffbeb", "border": "#d97706", "text": "#78350f" },
+    "project": { "bg": "#f0fdf4", "border": "#15803d", "text": "#14532d" },
+    "books": { "bg": "#eff6ff", "border": "#1d4ed8", "text": "#1e3a8a" },
+    "esw": { "bg": "#f5f3ff", "border": "#6d28d9", "text": "#4c1d95" },
+    "data": { "bg": "#f0fdfa", "border": "#0f766e", "text": "#134e4a" }
+  }
+}

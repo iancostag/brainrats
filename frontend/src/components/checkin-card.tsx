@@ -151,10 +151,10 @@ export function CheckinCard({
 
   return (
     <article
-      className={`flex flex-col gap-3 rounded-xl border p-4 transition sm:p-5 ${
+      className={`group flex flex-col gap-3 rounded-xl border p-4 transition sm:p-5 ${
         isInvalidated
-          ? "border-red-500/30 bg-red-950/10 opacity-80"
-          : "border-zinc-800 bg-zinc-900/60"
+          ? "border-red-600/35 bg-red-50/70"
+          : "border-[#DDD8CE] bg-white hover:border-[#C7C0B3]"
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -165,23 +165,23 @@ export function CheckinCard({
               src={checkin.avatar_url}
               alt={`Avatar de ${checkin.display_name}`}
               onError={() => setAvatarFailed(true)}
-              className="h-9 w-9 rounded-full border border-zinc-700 object-cover"
+              className="h-9 w-9 rounded-full border border-[#DDD8CE] object-cover"
             />
           ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-bold text-emerald-300">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0F1722] text-xs font-bold text-white">
               {checkin.display_name.slice(0, 2).toUpperCase()}
             </div>
           )}
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-zinc-100">{checkin.display_name}</span>
-              <span className="font-mono text-xs text-zinc-400">@{checkin.username}</span>
+              <span className="font-semibold text-[#0F1722]">{checkin.display_name}</span>
+              <span className="font-mono text-xs text-[#64748B]">@{checkin.username}</span>
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-[#475569]">
               <span className="font-mono">{checkin.study_date}</span>
               {categoryMeta && (
                 <span
-                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium ${categoryMeta.badgeClass}`}
+                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${categoryMeta.badgeClass}`}
                 >
                   {CategoryIcon && <CategoryIcon className="h-3 w-3" />}
                   {categoryMeta.shortLabel}
@@ -192,14 +192,14 @@ export function CheckinCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-zinc-700 bg-zinc-950 px-2.5 py-0.5 text-xs text-zinc-300">
+          <span className="rounded-full border border-[#DDD8CE] bg-[#FAF9F6] px-2.5 py-0.5 text-xs font-medium text-[#475569]">
             {SOURCE_LABELS[checkin.source]}
           </span>
           <span
-            className={`rounded-full border px-2.5 py-0.5 font-mono text-xs font-semibold tabular-nums ${
+            className={`rounded-full border px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums ${
               isInvalidated
-                ? "border-red-500/40 bg-red-500/15 text-red-300"
-                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                ? "border-red-600/35 bg-red-100 text-red-900"
+                : "border-[#D94E28]/30 bg-[#D94E28]/10 text-[#B83D1B]"
             }`}
           >
             {pointsLabel}
@@ -215,7 +215,7 @@ export function CheckinCard({
             onChange={(e) => setEditTitle(e.target.value)}
             onKeyDown={(e) => handleEscape(e, () => setEditing(false))}
             aria-label="Editar título do check-in"
-            className="min-h-10 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100"
+            className="min-h-10 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722]"
             required
           />
           <textarea
@@ -225,20 +225,20 @@ export function CheckinCard({
             onKeyDown={(e) => handleEscape(e, () => setEditing(false))}
             placeholder="Descrição livre..."
             aria-label="Editar descrição do check-in"
-            className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-sm text-zinc-100"
+            className="rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722]"
           />
           <div className="flex gap-2">
             <button
               type="submit"
               disabled={busy}
-              className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-zinc-950"
+              className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-[#0F1722] px-3 py-1.5 text-xs font-semibold text-white"
             >
               <Check className="h-3.5 w-3.5" /> Salvar
             </button>
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300"
+              className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-[#DDD8CE] bg-white px-3 py-1.5 text-xs font-medium text-[#334155]"
             >
               <X className="h-3.5 w-3.5" /> Cancelar (Esc)
             </button>
@@ -247,7 +247,7 @@ export function CheckinCard({
       ) : (
         <div>
           <div className="flex items-start justify-between gap-2">
-            <h4 className="text-base font-semibold text-zinc-50">{checkin.title}</h4>
+            <h4 className="text-base font-bold text-[#0F1722]">{checkin.title}</h4>
             {isAuthor && (
               <button
                 type="button"
@@ -256,7 +256,7 @@ export function CheckinCard({
                   setEditDescription(checkin.description ?? "");
                   setEditing(true);
                 }}
-                className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
+                className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-[#64748B] opacity-90 transition hover:bg-[#FAF9F6] hover:text-[#0F1722] sm:opacity-70 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
                 title="Editar título e descrição"
               >
                 <Pencil className="h-3.5 w-3.5" /> Editar
@@ -264,7 +264,7 @@ export function CheckinCard({
             )}
           </div>
           {checkin.description && (
-            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-[#334155]">
               {checkin.description}
             </p>
           )}
@@ -273,7 +273,7 @@ export function CheckinCard({
               {metadataChips.map((chip, idx) => (
                 <span
                   key={`${chip}-${idx}`}
-                  className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-0.5 font-mono text-[11px] text-zinc-300"
+                  className="rounded-md border border-[#DDD8CE] bg-[#FAF9F6] px-2 py-0.5 font-mono text-[11px] font-medium text-[#334155]"
                 >
                   {chip}
                 </span>
@@ -285,13 +285,13 @@ export function CheckinCard({
               href={checkin.evidence_url}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-flex min-h-8 items-center gap-1 text-xs text-emerald-400 hover:underline"
+              className="mt-2 inline-flex min-h-8 items-center gap-1 text-xs font-semibold text-[#2563EB] hover:underline"
             >
               <ExternalLink className="h-3.5 w-3.5" /> Ver evidência / link
             </a>
           )}
           {isInvalidated && checkin.invalidation_reason && (
-            <p className="mt-2 text-xs text-red-300">
+            <p className="mt-2 text-xs font-medium text-red-800">
               Motivo da invalidação: {checkin.invalidation_reason}
             </p>
           )}
@@ -299,12 +299,12 @@ export function CheckinCard({
       )}
 
       {isChallengeAdmin && checkin.reports.length > 0 && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
-          <div className="flex items-center gap-1.5 font-semibold">
-            <ShieldAlert className="h-4 w-4" />
+        <div className="rounded-lg border border-amber-600/35 bg-amber-50 p-3 text-xs text-amber-950">
+          <div className="flex items-center gap-1.5 font-bold">
+            <ShieldAlert className="h-4 w-4 text-amber-700" />
             Denúncias ({checkin.reports.length})
           </div>
-          <ul className="mt-1 space-y-1 text-amber-100/90">
+          <ul className="mt-1 space-y-1 text-amber-900">
             {checkin.reports.map((rep) => (
               <li key={rep.id}>
                 @{rep.reporter_username}: {rep.reason} ({rep.status})
@@ -314,7 +314,7 @@ export function CheckinCard({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-800 pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#EBE7DF] pt-3">
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Reações">
           {REACTION_ITEMS.map((item) => {
             const count = checkin.reactions[item.type] ?? 0;
@@ -327,10 +327,10 @@ export function CheckinCard({
                 aria-label={`Reagir com ${item.label} (${count})`}
                 aria-pressed={active}
                 onClick={() => void runAction(() => toggleReaction(checkin.id, item.type))}
-                className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs tabular-nums transition ${
+                className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold tabular-nums transition ${
                   active
-                    ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-300"
-                    : "border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200"
+                    ? "border-[#D94E28] bg-[#D94E28]/10 text-[#B83D1B]"
+                    : "border-[#DDD8CE] bg-[#FAF9F6] text-[#475569] hover:border-[#94A3B8] hover:text-[#0F1722]"
                 } disabled:opacity-50`}
               >
                 <span aria-hidden="true">{item.emoji}</span>
@@ -346,7 +346,7 @@ export function CheckinCard({
               type="button"
               aria-expanded={showReportBox}
               onClick={() => setShowReportBox((prev) => !prev)}
-              className="inline-flex min-h-10 items-center gap-1 rounded-md px-2.5 py-1 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-amber-300"
+              className="inline-flex min-h-10 items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-[#64748B] hover:bg-[#FAF9F6] hover:text-amber-800"
             >
               <Flag className="h-3.5 w-3.5" /> Denunciar
               {checkin.reports_count > 0 && ` (${checkin.reports_count})`}
@@ -361,7 +361,7 @@ export function CheckinCard({
                 onClick={() =>
                   void runAction(() => moderateCheckin(checkin.id, "restore"))
                 }
-                className="inline-flex min-h-10 items-center gap-1 rounded-md border border-emerald-500/40 px-2.5 py-1 text-xs font-medium text-emerald-300 transition hover:bg-emerald-500/10"
+                className="inline-flex min-h-10 items-center gap-1 rounded-md border border-emerald-700/40 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100"
               >
                 <RotateCcw className="h-3.5 w-3.5" /> Restaurar
               </button>
@@ -371,7 +371,7 @@ export function CheckinCard({
                 disabled={busy}
                 aria-expanded={showModerateBox}
                 onClick={() => setShowModerateBox((prev) => !prev)}
-                className="inline-flex min-h-10 items-center gap-1 rounded-md border border-red-500/40 px-2.5 py-1 text-xs font-medium text-red-300 transition hover:bg-red-500/10"
+                className="inline-flex min-h-10 items-center gap-1 rounded-md border border-red-600/35 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-900 transition hover:bg-red-100"
               >
                 <ShieldAlert className="h-3.5 w-3.5" /> Invalidar
               </button>
@@ -382,9 +382,9 @@ export function CheckinCard({
       {showModerateBox && !isInvalidated && (
         <form
           onSubmit={handleConfirmInvalidate}
-          className="flex flex-col gap-2 rounded-lg border border-red-500/30 bg-red-950/20 p-3"
+          className="flex flex-col gap-2 rounded-lg border border-red-600/35 bg-red-50 p-3"
         >
-          <span className="text-xs font-medium text-red-200">
+          <span className="text-xs font-semibold text-red-950">
             Confirmar invalidação (os pontos serão removidos do ranking):
           </span>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -394,21 +394,21 @@ export function CheckinCard({
               onChange={(e) => setModerateReason(e.target.value)}
               onKeyDown={(e) => handleEscape(e, () => setShowModerateBox(false))}
               placeholder="Motivo visível no card (ex: commit vazio / fora do escopo)..."
-              className="min-h-10 flex-1 rounded-lg border border-red-500/40 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100"
+              className="min-h-10 flex-1 rounded-lg border border-red-600/40 bg-white px-3 py-1.5 text-xs text-[#0F1722]"
               required
             />
             <div className="flex gap-2">
               <button
                 type="submit"
                 disabled={busy}
-                className="min-h-10 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-zinc-950"
+                className="min-h-10 rounded-lg bg-red-700 px-3 py-1.5 text-xs font-semibold text-white"
               >
                 Confirmar
               </button>
               <button
                 type="button"
                 onClick={() => setShowModerateBox(false)}
-                className="min-h-10 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300"
+                className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-1.5 text-xs font-medium text-[#334155]"
               >
                 Cancelar
               </button>
@@ -425,21 +425,21 @@ export function CheckinCard({
             onChange={(e) => setReportReason(e.target.value)}
             onKeyDown={(e) => handleEscape(e, () => setShowReportBox(false))}
             placeholder="Descreva o motivo da denúncia..."
-            className="min-h-10 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100"
+            className="min-h-10 flex-1 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-1.5 text-xs text-[#0F1722]"
             required
           />
           <div className="flex gap-2">
             <button
               type="submit"
               disabled={busy}
-              className="min-h-10 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-zinc-950"
+              className="min-h-10 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white"
             >
               Enviar denúncia
             </button>
             <button
               type="button"
               onClick={() => setShowReportBox(false)}
-              className="min-h-10 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs text-zinc-300"
+              className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-1.5 text-xs font-medium text-[#334155]"
             >
               Cancelar
             </button>
@@ -448,11 +448,11 @@ export function CheckinCard({
       )}
 
       {checkin.comments.length > 0 && (
-        <div className="space-y-1.5 border-t border-zinc-800/80 pt-2.5">
+        <div className="space-y-1.5 border-t border-[#EBE7DF] pt-2.5">
           {checkin.comments.map((cm) => (
-            <div key={cm.id} className="text-xs text-zinc-300">
-              <span className="font-semibold text-zinc-100">{cm.display_name}</span>{" "}
-              <span className="font-mono text-zinc-500">@{cm.username}:</span> {cm.content}
+            <div key={cm.id} className="text-xs text-[#334155]">
+              <span className="font-semibold text-[#0F1722]">{cm.display_name}</span>{" "}
+              <span className="font-mono text-[#64748B]">@{cm.username}:</span> {cm.content}
             </div>
           ))}
         </div>
@@ -460,19 +460,19 @@ export function CheckinCard({
 
       {isMember && (
         <form onSubmit={handleAddComment} className="flex items-center gap-2">
-          <MessageSquare className="h-3.5 w-3.5 shrink-0 text-zinc-500" />
+          <MessageSquare className="h-3.5 w-3.5 shrink-0 text-[#64748B]" />
           <input
             type="text"
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
             placeholder="Adicionar comentário..."
             aria-label="Adicionar comentário"
-            className="min-h-10 flex-1 rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs text-zinc-100"
+            className="min-h-10 flex-1 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 text-xs text-[#0F1722] placeholder:text-[#64748B]"
           />
           <button
             type="submit"
             disabled={busy || !commentText.trim()}
-            className="min-h-10 rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-200 hover:border-emerald-500/50 disabled:opacity-40"
+            className="min-h-10 rounded-lg border border-[#CBD5E1] bg-white px-3 py-1.5 text-xs font-semibold text-[#0F1722] hover:border-[#0F1722] disabled:opacity-40"
           >
             Comentar
           </button>
@@ -482,7 +482,7 @@ export function CheckinCard({
       {error && (
         <p
           role="alert"
-          className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+          className="rounded-lg border border-red-600/35 bg-red-50 px-3 py-2 text-xs font-medium text-red-900"
         >
           {error}
         </p>

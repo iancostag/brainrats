@@ -50,14 +50,14 @@ export function DiaryTab() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-900/70 p-5">
+      <div className="flex flex-col gap-4 rounded-xl border border-[#DDD8CE] bg-white p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="flex items-center gap-2 font-semibold text-zinc-100">
-            <BookMarked className="h-4 w-4 text-emerald-400" />
+          <h3 className="flex items-center gap-2 font-bold text-[#0F1722]">
+            <BookMarked className="h-4 w-4 text-[#D94E28]" />
             Meu Diário de Estudos
           </h3>
           {diary && (
-            <span className="font-mono text-xs text-zinc-400 tabular-nums">
+            <span className="font-mono text-xs text-[#475569] tabular-nums">
               {diary.total_entries} registro(s){hasFilters ? " filtrados" : ""} ·{" "}
               {diary.total_points} pts válidos
             </span>
@@ -66,14 +66,14 @@ export function DiaryTab() {
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
+            <Search className="absolute left-3 top-3.5 h-4 w-4 text-[#64748B]" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar por título ou notas (ex: System Design, SQL, Two Sum)..."
               aria-label="Buscar no diário"
-              className="min-h-11 w-full rounded-lg border border-zinc-700 bg-zinc-950 py-2 pl-9 pr-3 text-sm text-zinc-100 placeholder:text-zinc-500"
+              className="min-h-11 w-full rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] py-2 pl-9 pr-3 text-sm text-[#0F1722] placeholder:text-[#64748B]"
             />
           </div>
 
@@ -81,7 +81,7 @@ export function DiaryTab() {
             value={source}
             onChange={(e) => setSource(e.target.value)}
             aria-label="Filtrar por origem"
-            className="min-h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+            className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
           >
             <option value="">Todas as origens</option>
             <option value="manual">Manual</option>
@@ -97,7 +97,7 @@ export function DiaryTab() {
                 setCategorySlug("");
                 setSource("");
               }}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-zinc-700 px-3 py-2 text-xs font-medium text-zinc-200 hover:border-zinc-500"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-xs font-semibold text-[#0F1722] hover:border-[#0F1722]"
             >
               <X className="h-3.5 w-3.5" /> Limpar filtros
             </button>
@@ -109,10 +109,10 @@ export function DiaryTab() {
             type="button"
             aria-pressed={categorySlug === ""}
             onClick={() => setCategorySlug("")}
-            className={`min-h-10 rounded-lg border px-3 py-1 text-xs font-medium ${
+            className={`min-h-10 rounded-lg border px-3 py-1 text-xs font-semibold ${
               categorySlug === ""
-                ? "border-emerald-500 bg-emerald-500/15 text-emerald-300"
-                : "border-zinc-700 bg-zinc-950 text-zinc-400 hover:text-zinc-200"
+                ? "border-[#0F1722] bg-[#0F1722] text-white"
+                : "border-[#DDD8CE] bg-[#FAF9F6] text-[#475569] hover:text-[#0F1722]"
             }`}
           >
             Todas
@@ -126,10 +126,10 @@ export function DiaryTab() {
                 type="button"
                 aria-pressed={active}
                 onClick={() => setCategorySlug(cat.slug)}
-                className={`min-h-10 rounded-lg border px-3 py-1 text-xs font-medium ${
+                className={`min-h-10 rounded-lg border px-3 py-1 text-xs font-semibold ${
                   active
                     ? cat.activeButtonClass
-                    : "border-zinc-700 bg-zinc-950 text-zinc-400 hover:text-zinc-200"
+                    : "border-[#DDD8CE] bg-[#FAF9F6] text-[#475569] hover:text-[#0F1722]"
                 }`}
               >
                 {cat.shortLabel}
@@ -143,19 +143,19 @@ export function DiaryTab() {
       {error ? (
         <div
           role="alert"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-600/35 bg-red-50 p-4 text-sm text-red-900"
         >
           <span>{error}</span>
           <button
             type="button"
             onClick={() => void loadDiary()}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-100 hover:bg-red-500/30"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-red-700 px-3 py-1.5 text-xs font-semibold text-white"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Tentar novamente
           </button>
         </div>
       ) : loading ? (
-        <p className="text-sm text-zinc-400">Carregando registros do diário...</p>
+        <p className="text-sm text-[#475569]">Carregando registros do diário...</p>
       ) : diary && diary.items.length > 0 ? (
         <div className="space-y-3">
           {diary.items.map((item) => {
@@ -164,14 +164,14 @@ export function DiaryTab() {
             return (
               <article
                 key={item.id}
-                className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4"
+                className="rounded-xl border border-[#DDD8CE] bg-white p-4"
               >
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[#475569]">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono">{item.study_date}</span>
                     {meta && (
                       <span
-                        className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${meta.badgeClass}`}
+                        className={`rounded-md border px-2 py-0.5 text-[11px] font-semibold ${meta.badgeClass}`}
                       >
                         {meta.shortLabel}
                       </span>
@@ -179,10 +179,10 @@ export function DiaryTab() {
                     <span>{item.challenge_title}</span>
                   </div>
                   <span
-                    className={`rounded px-2 py-0.5 font-mono tabular-nums ${
+                    className={`rounded px-2 py-0.5 font-mono font-bold tabular-nums ${
                       item.status === "invalidated"
-                        ? "bg-red-500/15 text-red-300"
-                        : "bg-zinc-800 text-emerald-300"
+                        ? "bg-red-100 text-red-900"
+                        : "bg-[#D94E28]/10 text-[#B83D1B]"
                     }`}
                   >
                     {item.status === "invalidated"
@@ -190,9 +190,9 @@ export function DiaryTab() {
                       : `+${item.points_awarded} pts`}
                   </span>
                 </div>
-                <h4 className="mt-2 font-semibold text-zinc-100">{item.title}</h4>
+                <h4 className="mt-2 font-bold text-[#0F1722]">{item.title}</h4>
                 {item.description && (
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-300">
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-[#334155]">
                     {item.description}
                   </p>
                 )}
@@ -201,7 +201,7 @@ export function DiaryTab() {
                     {chips.map((chip, idx) => (
                       <span
                         key={`${chip}-${idx}`}
-                        className="rounded-md border border-zinc-800 bg-zinc-950 px-2 py-0.5 font-mono text-[11px] text-zinc-300"
+                        className="rounded-md border border-[#DDD8CE] bg-[#FAF9F6] px-2 py-0.5 font-mono text-[11px] font-medium text-[#334155]"
                       >
                         {chip}
                       </span>
@@ -213,7 +213,7 @@ export function DiaryTab() {
           })}
         </div>
       ) : (
-        <div className="rounded-xl border border-dashed border-zinc-800 p-8 text-center text-sm text-zinc-400">
+        <div className="rounded-xl border border-dashed border-[#C7C0B3] bg-white/60 p-8 text-center text-sm text-[#475569]">
           Nenhum check-in encontrado para esses filtros. Publique um estudo no seu desafio ativo!
         </div>
       )}
