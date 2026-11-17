@@ -2,6 +2,7 @@
 
 import { BookMarked, Code2, Eye, EyeOff, GitBranch, Github, Lock, Sparkles } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
+import Image from "next/image";
 
 import {
   fetchAuthProviders,
@@ -13,6 +14,7 @@ import {
   type AuthProviders,
   type User,
 } from "@/lib/api";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface LoginViewProps {
   sessionNotice?: string | null;
@@ -101,61 +103,65 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F3F1EC]">
-      <header className="border-b-[3px] border-[#D94E28] bg-[#0F1722] px-5 py-3 text-white sm:px-8">
+    <div className="min-h-screen bg-canvas">
+      <header className="border-b-[3px] border-accent bg-shell px-5 py-3 text-white sm:px-8">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="/logo-icon.jpg"
-              alt="Ícone BrainRats"
+              alt=""
+              width={48}
+              height={48}
+              priority
               className="h-11 w-11 rounded-xl border border-slate-700 object-cover sm:h-12 sm:w-12"
             />
             <span className="text-xl font-extrabold tracking-tight">BrainRats</span>
           </div>
-          <span className="font-mono text-xs text-slate-300">PT-BR · WEB / PWA</span>
+          <ThemeToggle />
         </div>
       </header>
 
       <main className="mx-auto flex min-h-[calc(100vh-64px)] max-w-5xl flex-col justify-center gap-10 px-5 py-10 sm:px-8 md:flex-row md:items-center md:gap-10 lg:gap-14">
         <section className="flex flex-1 flex-col gap-5">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/logo-wordmark.png"
             alt="BrainRats"
-            className="-my-3 h-24 w-auto max-w-full self-start object-contain object-left mix-blend-multiply sm:-my-5 sm:h-32"
+            width={420}
+            height={128}
+            priority
+            className="-my-3 h-24 w-auto max-w-full self-start object-contain object-left mix-blend-multiply sm:-my-5 sm:h-32 dark:hidden"
           />
 
-          <h1 className="max-w-xl text-3xl font-extrabold tracking-tight text-[#0F1722] sm:text-5xl sm:leading-[1.08]">
+          <h1 className="max-w-xl text-3xl font-extrabold tracking-tight text-ink-strong sm:text-5xl sm:leading-[1.08]">
             Constância em grupo para estudos de programação.
           </h1>
 
-          <p className="max-w-xl text-base leading-relaxed text-[#475569]">
+          <p className="max-w-xl text-base leading-relaxed text-ink-2">
             Compita com amigos ou sua turma em desafios com{" "}
-            <strong className="font-semibold text-[#0F1722]">Modo Check-in</strong> ou{" "}
-            <strong className="font-semibold text-[#0F1722]">Modo Pontuação</strong>, registre
+            <strong className="font-semibold text-ink-strong">Modo Check-in</strong> ou{" "}
+            <strong className="font-semibold text-ink-strong">Modo Pontuação</strong>, registre
             estudos sem atrito e proteja sua ofensiva com dias de descanso.
           </p>
 
-          <ul className="mt-1 space-y-3 text-sm text-[#334155]">
+          <ul className="mt-1 space-y-3 text-sm text-ink-3">
             <li className="flex items-start gap-3">
-              <Code2 className="mt-0.5 h-4 w-4 shrink-0 text-[#B45309]" />
+              <Code2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
               <span>
-                <strong className="font-semibold text-[#0F1722]">Cinco raias de estudo:</strong>{" "}
+                <strong className="font-semibold text-ink-strong">Cinco raias de estudo:</strong>{" "}
                 LeetCode, Projeto, Livros, ESW (Eng. de Software) e Dados.
               </span>
             </li>
             <li className="flex items-start gap-3">
-              <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-[#15803D]" />
+              <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
               <span>
-                <strong className="font-semibold text-[#0F1722]">Publicação automática:</strong>{" "}
+                <strong className="font-semibold text-ink-strong">Publicação automática:</strong>{" "}
                 commits do GitHub e submissões do LeetCode entram direto no desafio.
               </span>
             </li>
             <li className="flex items-start gap-3">
-              <BookMarked className="mt-0.5 h-4 w-4 shrink-0 text-[#1D4ED8]" />
+              <BookMarked className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
               <span>
-                <strong className="font-semibold text-[#0F1722]">
+                <strong className="font-semibold text-ink-strong">
                   Diário pesquisável e placar:
                 </strong>{" "}
                 anotações salvas em histórico com busca, reações e moderação do grupo.
@@ -164,18 +170,21 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
           </ul>
         </section>
 
-        <section className="w-full max-w-md rounded-xl border border-[#DDD8CE] bg-white p-6">
+        <section className="w-full max-w-md rounded-xl border border-lane bg-card p-6">
           <div className="flex items-center gap-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="/logo-emblem.jpg"
-              alt="Emblema BrainRats"
-              className="h-16 w-16 shrink-0 rounded-full border border-[#DDD8CE] object-cover sm:h-20 sm:w-20"
+              alt=""
+              width={80}
+              height={80}
+              className="h-16 w-16 shrink-0 rounded-full border border-lane object-cover sm:h-20 sm:w-20"
             />
             <div>
-              <h2 className="text-xl font-bold text-[#0F1722]">Acesse sua conta</h2>
-              <p className="text-xs text-[#475569]">
-                Entre com GitHub OAuth ou usuário e senha.
+              <h2 className="text-xl font-bold text-ink-strong">Acesse sua conta</h2>
+              <p className="text-sm text-ink-2">
+                {providers.github_oauth_enabled
+                  ? "Entre com o GitHub ou com usuário e senha."
+                  : "Entre com seu usuário e senha."}
               </p>
             </div>
           </div>
@@ -194,26 +203,18 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
             {providers.github_oauth_enabled ? (
               <a
                 href={getGithubOAuthUrl()}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0F1722] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#1E293B]"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-action px-4 py-2.5 text-sm font-bold text-white transition hover:bg-action-hover"
               >
                 <Github className="h-4 w-4" />
                 Entrar com GitHub
               </a>
-            ) : (
-              <div className="rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-xs text-[#475569]">
-                <span className="inline-flex items-center gap-1.5 font-semibold text-[#0F1722]">
-                  <Github className="h-3.5 w-3.5" /> GitHub OAuth
-                </span>{" "}
-                pronto para ativar via{" "}
-                <code className="font-mono text-[11px]">GITHUB_CLIENT_ID</code> no servidor.
-              </div>
-            )}
+            ) : null}
           </div>
 
           <div
             role="tablist"
             aria-label="Modo de acesso"
-            className="mt-4 grid grid-cols-2 gap-1 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] p-1 text-xs font-semibold"
+            className="mt-4 grid grid-cols-2 gap-1 rounded-lg border border-lane bg-well p-1 text-xs font-semibold"
           >
             <button
               type="button"
@@ -225,8 +226,8 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
               }}
               className={`min-h-9 rounded-md transition ${
                 mode === "login"
-                  ? "bg-white text-[#0F1722] ring-1 ring-[#DDD8CE]"
-                  : "text-[#475569] hover:text-[#0F1722]"
+                  ? "bg-card text-ink-strong ring-1 ring-lane"
+                  : "text-ink-2 hover:text-ink-strong"
               }`}
             >
               Entrar
@@ -241,8 +242,8 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
               }}
               className={`min-h-9 rounded-md transition ${
                 mode === "register"
-                  ? "bg-white text-[#0F1722] ring-1 ring-[#DDD8CE]"
-                  : "text-[#475569] hover:text-[#0F1722]"
+                  ? "bg-card text-ink-strong ring-1 ring-lane"
+                  : "text-ink-2 hover:text-ink-strong"
               }`}
             >
               Criar conta
@@ -251,20 +252,20 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
 
           <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-[#1E293B]">Username *</span>
+              <span className="font-medium text-ink-label">Username *</span>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="ex: iancostag"
                 autoComplete="username"
-                className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] transition-colors placeholder:text-[#64748B] focus:border-[#0F1722]"
+                className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong transition-colors placeholder:text-ink-muted focus:border-ink-strong"
                 required
               />
             </label>
 
             <label className="flex flex-col gap-1 text-sm">
-              <span className="flex items-center gap-1 font-medium text-[#1E293B]">
+              <span className="flex items-center gap-1 font-medium text-ink-label">
                 <Lock className="h-3.5 w-3.5" /> Senha *
               </span>
               <div className="relative flex items-center">
@@ -275,14 +276,14 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
                   placeholder={mode === "register" ? "Mínimo 6 caracteres" : "Sua senha"}
                   autoComplete={mode === "register" ? "new-password" : "current-password"}
                   minLength={mode === "register" ? 6 : 1}
-                  className="min-h-11 w-full rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] py-2 pl-3 pr-11 text-[#0F1722] transition-colors placeholder:text-[#64748B] focus:border-[#0F1722]"
+                  className="min-h-11 w-full rounded-lg border border-lane bg-well py-2 pl-3 pr-11 text-ink-strong transition-colors placeholder:text-ink-muted focus:border-ink-strong"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                  className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-[#64748B] transition-colors hover:bg-[#EBE7DF] hover:text-[#0F1722]"
+                  className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-lane-soft hover:text-ink-strong"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -293,32 +294,32 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
               <>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="flex flex-col gap-1 text-sm">
-                    <span className="font-medium text-[#1E293B]">Nome</span>
+                    <span className="font-medium text-ink-label">Nome</span>
                     <input
                       type="text"
                       value={displayName}
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="Ian Costa"
                       autoComplete="name"
-                      className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] transition-colors placeholder:text-[#64748B] focus:border-[#0F1722]"
+                      className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong transition-colors placeholder:text-ink-muted focus:border-ink-strong"
                     />
                   </label>
                   <label className="flex flex-col gap-1 text-sm">
-                    <span className="font-medium text-[#1E293B]">E-mail (opcional)</span>
+                    <span className="font-medium text-ink-label">E-mail (opcional)</span>
                     <input
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="voce@exemplo.com"
                       autoComplete="email"
-                      className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] transition-colors placeholder:text-[#64748B] focus:border-[#0F1722]"
+                      className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong transition-colors placeholder:text-ink-muted focus:border-ink-strong"
                     />
                   </label>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="flex flex-col gap-1 text-sm">
-                    <span className="flex items-center gap-1 font-medium text-[#1E293B]">
+                    <span className="flex items-center gap-1 font-medium text-ink-label">
                       <Github className="h-3.5 w-3.5" /> GitHub (opcional)
                     </span>
                     <input
@@ -326,12 +327,12 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
                       value={githubUsername}
                       onChange={(e) => setGithubUsername(e.target.value)}
                       placeholder="iancostag"
-                      className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] transition-colors placeholder:text-[#64748B] focus:border-[#0F1722]"
+                      className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong transition-colors placeholder:text-ink-muted focus:border-ink-strong"
                     />
                   </label>
 
                   <label className="flex flex-col gap-1 text-sm">
-                    <span className="flex items-center gap-1 font-medium text-[#1E293B]">
+                    <span className="flex items-center gap-1 font-medium text-ink-label">
                       <Code2 className="h-3.5 w-3.5" /> LeetCode (opcional)
                     </span>
                     <input
@@ -339,7 +340,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
                       value={leetcodeUsername}
                       onChange={(e) => setLeetcodeUsername(e.target.value)}
                       placeholder="usuario_lc"
-                      className="min-h-11 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-[#0F1722] transition-colors placeholder:text-[#64748B] focus:border-[#0F1722]"
+                      className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong transition-colors placeholder:text-ink-muted focus:border-ink-strong"
                     />
                   </label>
                 </div>
@@ -358,7 +359,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
             <button
               type="submit"
               disabled={loading}
-              className="mt-1 min-h-11 rounded-lg bg-[#D94E28] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#C2411E] disabled:opacity-50"
+              className="mt-1 min-h-11 rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-white transition hover:bg-accent-hover disabled:opacity-50"
             >
               {loading
                 ? "Autenticando..."
@@ -372,9 +373,9 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
                 type="button"
                 disabled={loading}
                 onClick={() => void handleDemoLogin()}
-                className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#0F1722]/20 bg-[#FAF9F6] px-4 py-2.5 text-sm font-semibold text-[#0F1722] transition hover:border-[#0F1722] hover:bg-[#F3F1EC] disabled:opacity-50"
+                className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-ink-strong/20 bg-well px-4 py-2.5 text-sm font-semibold text-ink-strong transition hover:border-ink-strong hover:bg-canvas disabled:opacity-50"
               >
-                <Sparkles className="h-4 w-4 shrink-0 text-[#D94E28]" />
+                <Sparkles className="h-4 w-4 shrink-0 text-accent-text" />
                 Entrar com Conta Demo
               </button>
             )}

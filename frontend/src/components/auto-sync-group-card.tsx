@@ -5,7 +5,8 @@ import { useState } from "react";
 
 import { CheckinCard } from "@/components/checkin-card";
 import type { CheckIn, ScoringMode } from "@/lib/api";
-import { CATEGORY_META, formatPointsLabel } from "@/lib/categories";
+import { LaneBadge } from "@/components/lane-badge";
+import { CATEGORY_META, formatPointsLabel, formatStudyDate } from "@/lib/categories";
 
 interface AutoSyncGroupCardProps {
   items: CheckIn[];
@@ -33,7 +34,6 @@ export function AutoSyncGroupCard({
   const allInvalidated = validItems.length === 0;
 
   const categoryMeta = CATEGORY_META[first.category_slug];
-  const CategoryIcon = categoryMeta?.icon;
   const sourceLabel = first.source === "leetcode" ? "LeetCode Auto" : "GitHub Auto";
   const summaryTitle =
     first.source === "leetcode"
@@ -45,7 +45,7 @@ export function AutoSyncGroupCard({
     : formatPointsLabel(totalPoints, scoringMode, "valid");
 
   return (
-    <article className="flex flex-col gap-3 rounded-xl border border-[#DDD8CE] bg-white p-4 sm:p-5">
+    <article className="flex flex-col gap-3 rounded-xl border border-lane bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex items-center gap-3">
           {first.avatar_url && !avatarFailed ? (
@@ -54,41 +54,36 @@ export function AutoSyncGroupCard({
               src={first.avatar_url}
               alt={`Avatar de ${first.display_name}`}
               onError={() => setAvatarFailed(true)}
-              className="h-9 w-9 rounded-full border border-[#DDD8CE] object-cover"
+              className="h-9 w-9 rounded-full border border-lane object-cover"
             />
           ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0F1722] text-xs font-bold text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-action text-xs font-bold text-white">
               {first.display_name.slice(0, 2).toUpperCase()}
             </div>
           )}
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-[#0F1722]">{first.display_name}</span>
-              <span className="font-mono text-xs text-[#64748B]">@{first.username}</span>
+              <span className="font-semibold text-ink-strong">{first.display_name}</span>
+              <span className="font-mono text-xs text-ink-muted">@{first.username}</span>
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-[#475569]">
-              <span className="font-mono">{first.study_date}</span>
-              {categoryMeta && (
-                <span
-                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${categoryMeta.badgeClass}`}
-                >
-                  {CategoryIcon && <CategoryIcon className="h-3 w-3" />}
-                  {categoryMeta.shortLabel}
-                </span>
-              )}
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-ink-2">
+              <time dateTime={first.study_date} title={first.study_date}>
+                {formatStudyDate(first.study_date)}
+              </time>
+              {categoryMeta && <LaneBadge slug={first.category_slug} />}
             </div>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-[#DDD8CE] bg-[#FAF9F6] px-2.5 py-0.5 text-xs font-medium text-[#475569]">
+          <span className="rounded-full border border-lane bg-well px-2.5 py-0.5 text-xs font-medium text-ink-2">
             {sourceLabel} · Lote ({items.length})
           </span>
           <span
-            className={`rounded-full border px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums ${
+            className={`rounded-full border px-2.5 py-0.5 font-score text-sm ${
               allInvalidated
                 ? "border-red-600/35 bg-red-100 text-red-900"
-                : "border-[#D94E28]/30 bg-[#D94E28]/10 text-[#B83D1B]"
+                : "border-accent/30 bg-accent/10 text-accent-strong"
             }`}
           >
             {pointsText}
@@ -97,12 +92,12 @@ export function AutoSyncGroupCard({
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="text-base font-bold text-[#0F1722]">{summaryTitle}</h4>
+        <h4 className="text-base font-bold text-ink-strong">{summaryTitle}</h4>
         <button
           type="button"
           aria-expanded={expanded}
           onClick={() => setExpanded((prev) => !prev)}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 text-xs font-semibold text-[#0F1722] hover:border-[#0F1722]"
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-lane bg-well px-3 py-1.5 text-xs font-semibold text-ink-strong hover:border-ink-strong"
         >
           {expanded ? (
             <>
@@ -117,18 +112,18 @@ export function AutoSyncGroupCard({
       </div>
 
       {!expanded ? (
-        <ul className="divide-y divide-[#EBE7DF] rounded-lg border border-[#DDD8CE] bg-[#FAF9F6]">
+        <ul className="divide-y divide-lane-soft rounded-lg border border-lane bg-well">
           {items.map((item) => (
             <li
               key={item.id}
-              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs transition-colors hover:bg-white"
+              className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-xs transition-colors hover:bg-card"
             >
               <div className="flex min-w-0 items-center gap-1.5">
                 <span
                   className={`truncate font-medium ${
                     item.status === "invalidated"
                       ? "text-red-800 line-through"
-                      : "text-[#0F1722]"
+                      : "text-ink-strong"
                   }`}
                 >
                   {item.title}
@@ -139,13 +134,13 @@ export function AutoSyncGroupCard({
                     target="_blank"
                     rel="noreferrer"
                     aria-label={`Abrir link de ${item.title}`}
-                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-[#2563EB] transition-colors hover:bg-[#EBE7DF]"
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-link transition-colors hover:bg-lane-soft"
                   >
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 )}
               </div>
-              <span className="shrink-0 font-mono text-[11px] text-[#475569] tabular-nums">
+              <span className="shrink-0 font-score text-sm text-ink-2">
                 {item.status === "invalidated"
                   ? "Invalidado"
                   : scoringMode === "checkin"
@@ -158,7 +153,7 @@ export function AutoSyncGroupCard({
           ))}
         </ul>
       ) : (
-        <div className="mt-1 space-y-3 border-t border-[#EBE7DF] pt-3">
+        <div className="mt-1 space-y-3 border-t border-lane-soft pt-3">
           {items.map((item) => (
             <CheckinCard
               key={item.id}

@@ -25,6 +25,9 @@ import { CheckinCard } from "@/components/checkin-card";
 import { CheckinForm } from "@/components/checkin-form";
 import { DiaryTab } from "@/components/diary-tab";
 import { IntegrationsTab } from "@/components/integrations-tab";
+import { LaneNumber } from "@/components/lane-badge";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { WeeklySplits } from "@/components/weekly-splits";
 import {
   clearStoredToken,
   fetchChallengeDetail,
@@ -37,7 +40,7 @@ import {
   type CheckIn,
   type User,
 } from "@/lib/api";
-import { CATEGORY_META, formatTimezoneLabel } from "@/lib/categories";
+import { CATEGORY_META, formatPointsLabel, formatTimezoneLabel } from "@/lib/categories";
 
 type TabId = "active" | "explore" | "diary" | "integrations";
 
@@ -92,6 +95,8 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
   const [restFeedback, setRestFeedback] = useState<string | null>(null);
   const [quickSyncing, setQuickSyncing] = useState(false);
   const [quickSyncMsg, setQuickSyncMsg] = useState<string | null>(null);
+  // Ganho do último check-in publicado: dispara o momento de feedback na meta e na ofensiva.
+  const [lastGain, setLastGain] = useState<{ label: string; key: number } | null>(null);
 
   const [feedFilter, setFeedFilter] = useState<string>("all");
   const [hasMoreFeed, setHasMoreFeed] = useState(false);
@@ -156,6 +161,12 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
   useEffect(() => {
     void loadChallenges();
   }, [loadChallenges]);
+
+  useEffect(() => {
+    if (!lastGain) return;
+    const timer = setTimeout(() => setLastGain(null), 2600);
+    return () => clearTimeout(timer);
+  }, [lastGain]);
 
   useEffect(() => {
     if (activeChallengeId) {
@@ -275,6 +286,14 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
   );
 
   const myLeaderboardEntry = detail?.leaderboard.find((e) => e.user_id === user.id);
+  const currentStreak = myLeaderboardEntry?.current_streak ?? 0;
+  const isCheckinMode = activeChallenge?.scoring_mode === "checkin";
+  const dailyCap = Math.max(1, activeChallenge?.daily_points_cap ?? 100);
+  const todayProgress = isCheckinMode
+    ? userPointsToday > 0
+      ? 1
+      : 0
+    : Math.min(1, userPointsToday / dailyCap);
 
   const sortedLeaderboard = useMemo(() => {
     const entries = [...(detail?.leaderboard ?? [])];
@@ -353,8 +372,8 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
   const hasLinkedIntegrations = user.integrations.length > 0;
 
   return (
-    <div className="min-h-screen bg-[#F3F1EC] text-[#111827]">
-      <header className="sticky top-0 z-20 border-b-[3px] border-[#D94E28] bg-[#0F1722] text-white">
+    <div className="min-h-screen bg-canvas text-ink">
+      <header className="sticky top-0 z-20 border-b-[3px] border-accent bg-shell text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6 md:py-3">
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -374,7 +393,6 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
           </div>
 
           <nav
-            role="tablist"
             aria-label="Navegação principal"
             className="hidden items-center gap-1 md:flex"
           >
@@ -385,13 +403,12 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                 <button
                   key={item.id}
                   type="button"
-                  role="tab"
-                  aria-selected={active}
+                  aria-current={active ? "page" : undefined}
                   onClick={() => switchTab(item.id)}
                   className={`inline-flex min-h-10 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold transition ${
                     active
-                      ? "border-b-2 border-[#D94E28] bg-[#182232] text-white"
-                      : "text-slate-300 hover:bg-[#182232]/70 hover:text-white"
+                      ? "border-b-2 border-accent bg-shell-raised text-white"
+                      : "text-slate-300 hover:bg-shell-raised/70 hover:text-white"
                   }`}
                 >
                   <Icon className="h-4 w-4" />
@@ -401,16 +418,19 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
             })}
           </nav>
 
-          <button
-            type="button"
-            onClick={() => {
-              clearStoredToken();
-              onLogout();
-            }}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-slate-700 bg-[#182232] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 hover:text-white"
-          >
-            <LogOut className="h-3.5 w-3.5" /> Sair
-          </button>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button
+              type="button"
+              onClick={() => {
+                clearStoredToken();
+                onLogout();
+              }}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-md border border-slate-700 bg-shell-raised px-3 py-1.5 text-xs font-semibold text-slate-200 transition-colors hover:border-slate-500 hover:text-white"
+            >
+              <LogOut className="h-3.5 w-3.5" aria-hidden /> Sair
+            </button>
+          </div>
         </div>
       </header>
 
@@ -434,18 +454,18 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
         <div className={tab === "active" ? "block" : "hidden"}>
           <div className="flex flex-col gap-6">
             {/* Signature Move: Faixa de Splits Semanais & Painel do Desafio */}
-            <section className="flex flex-col gap-4 rounded-xl border border-[#DDD8CE] bg-white p-4 sm:p-5">
+            <section className="flex flex-col gap-4 rounded-xl border border-lane bg-card p-4 sm:p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <label
                       htmlFor="challenge-switcher"
-                      className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#475569]"
+                      className="font-mono text-[11px] font-bold uppercase tracking-wider text-ink-2"
                     >
                       Desafio ativo
                     </label>
                     {(loadingDetail || loadingChallenges) && (
-                      <span className="font-mono text-[11px] font-semibold text-[#D94E28]">
+                      <span className="font-mono text-[11px] font-semibold text-accent-text">
                         Atualizando...
                       </span>
                     )}
@@ -455,7 +475,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                     value={activeChallengeId}
                     disabled={challenges.length === 0}
                     onChange={(e) => setActiveChallengeId(e.target.value)}
-                    className="min-h-11 max-w-full rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-2 text-base font-bold text-[#0F1722] transition-colors focus:border-[#0F1722] disabled:opacity-60"
+                    className="min-h-11 max-w-full rounded-lg border border-lane bg-well px-3 py-2 text-base font-bold text-ink-strong transition-colors focus:border-ink-strong disabled:opacity-60"
                   >
                     {challenges.length === 0 ? (
                       <option value="">Nenhum desafio disponível</option>
@@ -468,66 +488,90 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                     )}
                   </select>
                   {activeChallenge && (
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-[#475569] tabular-nums">
-                      <span className="font-bold text-[#D94E28]">
-                        {activeChallenge.scoring_mode === "checkin"
-                          ? `HOJE ${userPointsToday > 0 ? "CONCLUÍDO (1/1)" : "PENDENTE (0/1)"}`
-                          : `HOJE ${userPointsToday}/${activeChallenge.daily_points_cap} PTS`}
-                      </span>
-                      <span>·</span>
-                      <span>
-                        OFENSIVA {myLeaderboardEntry?.current_streak ?? 0}D
-                      </span>
-                      <span>·</span>
-                      <span>{formatTimezoneLabel(activeChallenge.timezone)}</span>
+                    <div className="mt-1 flex flex-col gap-2">
+                      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-xs font-bold uppercase tracking-wider text-ink-2">
+                            Meta de hoje
+                          </span>
+                          <span
+                            key={`pts-${userPointsToday}`}
+                            className={`font-score text-xl leading-none text-ink-strong ${
+                              lastGain ? "animate-stamp" : ""
+                            }`}
+                          >
+                            {isCheckinMode
+                              ? userPointsToday > 0
+                                ? "Concluída"
+                                : "Pendente"
+                              : `${userPointsToday}/${dailyCap}`}
+                          </span>
+                          {!isCheckinMode && <span className="text-xs text-ink-2">pts</span>}
+                          {lastGain && (
+                            <span
+                              key={lastGain.key}
+                              className="animate-rise-in rounded-full bg-accent px-2 py-0.5 font-score text-sm text-white"
+                            >
+                              {lastGain.label}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-2">
+                          <span className="inline-flex items-center gap-1">
+                            <Flame className="h-4 w-4 text-accent-text" aria-hidden="true" />
+                            <span
+                              key={`streak-${currentStreak}`}
+                              className={`font-score text-base leading-none text-ink-strong ${
+                                lastGain ? "animate-stamp" : ""
+                              }`}
+                            >
+                              {currentStreak}
+                            </span>
+                            {currentStreak === 1 ? "dia" : "dias"} de ofensiva
+                          </span>
+                          <span>{formatTimezoneLabel(activeChallenge.timezone)}</span>
+                        </div>
+                      </div>
+                      <div
+                        role="progressbar"
+                        aria-label="Meta de hoje"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={Math.round(todayProgress * 100)}
+                        aria-valuetext={
+                          isCheckinMode
+                            ? userPointsToday > 0
+                              ? "Check-in de hoje concluído"
+                              : "Check-in de hoje pendente"
+                            : `${userPointsToday} de ${dailyCap} pontos`
+                        }
+                        className="h-2 overflow-hidden rounded-full bg-lane-soft"
+                      >
+                        <div
+                          className="h-full rounded-full bg-accent transition-[width] duration-700 ease-out motion-reduce:transition-none"
+                          style={{ width: `${todayProgress * 100}%` }}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {detail?.challenge.is_member && (
-                  <div className="flex flex-col gap-1.5">
-                    <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#64748B]">
-                      Splits da Semana
-                    </span>
-                    <div className="grid grid-cols-7 gap-1.5 text-center">
-                      {weekDays.map((day) => {
-                        const studied = userActiveDates.has(day.iso);
-                        const rested = userRestSet.has(day.iso);
-                        let boxStyle = "border-[#DDD8CE] bg-[#FAF9F6] text-[#64748B]";
-                        let statusTitle = "Sem registro";
-                        if (studied) {
-                          boxStyle = "border-[#D94E28] bg-[#D94E28] text-white";
-                          statusTitle = "Estudado";
-                        } else if (rested) {
-                          boxStyle = "border-[#94A3B8] bg-[#E2E8F0] text-[#0F1722]";
-                          statusTitle = "Dia de descanso";
-                        }
-                        return (
-                          <div
-                            key={day.iso}
-                            title={`${day.label} (${day.iso}): ${statusTitle}`}
-                            className={`flex min-w-10 flex-col items-center gap-0.5 rounded-md border px-1.5 py-1.5 text-[11px] ${boxStyle} ${
-                              day.isToday ? "ring-2 ring-[#0F1722] ring-offset-1" : ""
-                            }`}
-                          >
-                            <span className="font-bold">{day.label}</span>
-                            <span className="font-mono text-[10px]">
-                              {studied ? "OK" : rested ? "REST" : "—"}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                  <WeeklySplits
+                    days={weekDays}
+                    studiedDates={userActiveDates}
+                    restDates={userRestSet}
+                    todayProgress={todayProgress}
+                  />
                 )}
               </div>
 
               {activeChallenge && (
-                <div className="flex flex-wrap items-center gap-2 border-t border-[#EBE7DF] pt-3 text-xs">
+                <div className="no-scrollbar -mx-4 flex items-center gap-2 overflow-x-auto border-t border-lane-soft px-4 pt-3 text-xs sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
                   <button
                     type="button"
                     onClick={() => handleCopyInvite(activeChallenge.invite_code)}
-                    className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 font-mono font-semibold text-[#0F1722] hover:border-[#0F1722]"
+                    className="inline-flex min-h-10 shrink-0 items-center whitespace-nowrap gap-1.5 rounded-lg border border-lane bg-well px-3 py-1.5 font-mono font-semibold text-ink-strong hover:border-ink-strong"
                   >
                     {copiedCode ? (
                       <>
@@ -545,7 +589,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       type="button"
                       onClick={() => setConfirmRestDay((prev) => !prev)}
                       disabled={detail.rest_days_remaining_this_week <= 0}
-                      className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-amber-700/35 bg-amber-50 px-3 py-1.5 font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-40"
+                      className="inline-flex min-h-10 shrink-0 items-center whitespace-nowrap gap-1.5 rounded-lg border border-amber-700/35 bg-amber-50 px-3 py-1.5 font-semibold text-amber-950 hover:bg-amber-100 disabled:opacity-40"
                     >
                       <Coffee className="h-3.5 w-3.5" />
                       Descansar hoje ({detail.rest_days_remaining_this_week}/sem)
@@ -558,7 +602,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                         type="button"
                         disabled={quickSyncing}
                         onClick={() => void handleQuickSync()}
-                        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 font-semibold text-[#0F1722] hover:border-[#0F1722] disabled:opacity-50"
+                        className="inline-flex min-h-10 shrink-0 items-center whitespace-nowrap gap-1.5 rounded-lg border border-lane bg-well px-3 py-1.5 font-semibold text-ink-strong hover:border-ink-strong disabled:opacity-50"
                       >
                         <RefreshCw
                           className={`h-3.5 w-3.5 ${quickSyncing ? "animate-spin" : ""}`}
@@ -569,7 +613,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       <button
                         type="button"
                         onClick={() => switchTab("integrations")}
-                        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 font-medium text-[#475569] hover:border-[#0F1722] hover:text-[#0F1722]"
+                        className="inline-flex min-h-10 shrink-0 items-center whitespace-nowrap gap-1.5 rounded-lg border border-lane bg-well px-3 py-1.5 font-medium text-ink-2 hover:border-ink-strong hover:text-ink-strong"
                       >
                         <GitMerge className="h-3.5 w-3.5" /> Conectar GitHub/LeetCode
                       </button>
@@ -580,7 +624,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       type="button"
                       aria-expanded={showRules}
                       onClick={() => setShowRules((prev) => !prev)}
-                      className="inline-flex min-h-10 items-center gap-1 rounded-lg px-2.5 py-1.5 font-medium text-[#475569] hover:bg-[#FAF9F6] hover:text-[#0F1722]"
+                      className="inline-flex min-h-10 shrink-0 items-center whitespace-nowrap gap-1 rounded-lg px-2.5 py-1.5 font-medium text-ink-2 hover:bg-well hover:text-ink-strong"
                     >
                       <Info className="h-3.5 w-3.5" />
                       Regras e pesos
@@ -607,14 +651,14 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       type="button"
                       disabled={restingBusy}
                       onClick={() => void handleConfirmRestDay()}
-                      className="min-h-9 rounded-lg bg-[#0F1722] px-3 py-1.5 font-semibold text-white"
+                      className="min-h-9 rounded-lg bg-action px-3 py-1.5 font-semibold text-white"
                     >
                       {restingBusy ? "Registrando..." : "Confirmar descanso"}
                     </button>
                     <button
                       type="button"
                       onClick={() => setConfirmRestDay(false)}
-                      className="min-h-9 rounded-lg border border-[#DDD8CE] bg-white px-3 py-1.5 font-medium text-[#334155]"
+                      className="min-h-9 rounded-lg border border-lane bg-card px-3 py-1.5 font-medium text-ink-3"
                     >
                       Cancelar
                     </button>
@@ -644,14 +688,14 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                 <div
                   role="status"
                   aria-live="polite"
-                  className="flex items-center justify-between gap-2 rounded-lg border border-[#D94E28]/30 bg-[#D94E28]/10 px-3 py-2 text-xs font-semibold text-[#B83D1B]"
+                  className="flex items-center justify-between gap-2 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent-strong"
                 >
                   <span>{quickSyncMsg}</span>
                   <button
                     type="button"
                     onClick={() => setQuickSyncMsg(null)}
                     aria-label="Fechar aviso"
-                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-[#B83D1B] hover:bg-[#D94E28]/15"
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-accent-strong hover:bg-accent/15"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -659,7 +703,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
               )}
 
               {showRules && detail && (
-                <div className="grid gap-2 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] p-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-2 rounded-lg border border-lane bg-well p-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
                   {detail.category_configs
                     .filter((c) => c.is_enabled)
                     .map((cfg) => {
@@ -667,12 +711,13 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       return (
                         <div
                           key={cfg.category_id}
-                          className="flex items-center justify-between gap-2 rounded-md border border-[#DDD8CE] bg-white px-2.5 py-1.5"
+                          className="flex items-center justify-between gap-2 rounded-md border border-lane bg-card px-2.5 py-1.5"
                         >
-                          <span className="font-semibold text-[#0F1722]">
+                          <span className="inline-flex items-center gap-2 font-semibold text-ink-strong">
+                            <LaneNumber slug={cfg.slug} />
                             {meta?.shortLabel ?? cfg.name}
                           </span>
-                          <span className="font-mono text-[#475569] tabular-nums">
+                          <span className="font-mono text-ink-2 tabular-nums">
                             {detail.challenge.scoring_mode === "checkin"
                               ? "1 pt/dia"
                               : `${cfg.base_points} base · máx ${cfg.daily_cap}/dia`}
@@ -702,58 +747,74 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
               <div
                 role="status"
                 aria-live="polite"
-                className="flex items-center gap-3 rounded-xl border border-[#DDD8CE] bg-white p-6 text-sm text-[#475569]"
+                className="flex items-center gap-3 rounded-xl border border-lane bg-card p-6 text-sm text-ink-2"
               >
-                <RefreshCw className="h-4 w-4 animate-spin text-[#D94E28]" />
+                <RefreshCw className="h-4 w-4 animate-spin text-accent-text" />
                 <span>Carregando desafio...</span>
               </div>
             ) : !loadingChallenges && challenges.length === 0 ? (
-              <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-[#C7C0B3] bg-white/70 p-6 text-sm text-[#475569]">
+              <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-lane-strong bg-card/70 p-6 text-sm text-ink-2">
                 <p>Você ainda não participa de nenhum desafio.</p>
                 <button
                   type="button"
                   onClick={() => switchTab("explore")}
-                  className="min-h-10 rounded-lg bg-[#D94E28] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#C2411E]"
+                  className="min-h-10 rounded-lg bg-accent px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-accent-hover"
                 >
                   Explorar & Criar Desafio
                 </button>
               </div>
             ) : detail ? (
               <div
-                className={`grid gap-6 transition-opacity lg:grid-cols-3 ${
+                className={`grid gap-6 transition-opacity lg:grid-cols-3 lg:grid-rows-[auto_1fr] ${
                   loadingDetail ? "opacity-70" : "opacity-100"
                 }`}
               >
-                <div className="order-2 flex flex-col gap-6 lg:order-1 lg:col-span-2">
+                {/* Ordem no celular: registrar, placar, feed. No desktop o placar ocupa a coluna direita. */}
+                <div className="lg:col-span-2">
                   {detail.challenge.is_member ? (
                     <CheckinForm
                       challengeId={detail.challenge.id}
                       scoringMode={detail.challenge.scoring_mode}
                       categoryConfigs={detail.category_configs}
+                      otherChallengesCount={
+                        challenges.filter((c) => c.is_member && c.id !== detail.challenge.id)
+                          .length
+                      }
                       onCreated={(created) => {
                         setFeed((prev) => [created, ...prev]);
+                        if (created.status === "valid" && created.points_awarded > 0) {
+                          setLastGain({
+                            label: formatPointsLabel(
+                              created.points_awarded,
+                              detail.challenge.scoring_mode,
+                              created.status,
+                            ),
+                            key: Date.now(),
+                          });
+                        }
                         void fetchChallengeDetail(detail.challenge.id)
                           .then(setDetail)
                           .catch(() => {});
                       }}
                     />
                   ) : (
-                    <div className="rounded-xl border border-[#DDD8CE] bg-white p-5 text-sm text-[#334155]">
+                    <div className="rounded-xl border border-lane bg-card p-5 text-sm text-ink-3">
                       Você está visualizando um desafio aberto. Vá em{" "}
                       <button
                         type="button"
                         onClick={() => switchTab("explore")}
-                        className="font-bold text-[#D94E28] underline"
+                        className="font-bold text-accent-text underline"
                       >
                         Explorar & Criar
                       </button>{" "}
                       para participar e postar check-ins.
                     </div>
                   )}
+                </div>
 
-                  <section className="flex flex-col gap-4">
+                <section className="flex flex-col gap-4 lg:col-span-2 lg:row-start-2">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="font-bold text-[#0F1722]">
+                      <h3 className="font-bold text-ink-strong">
                         Entregas do Grupo ({filteredFeed.length})
                       </h3>
                       <div
@@ -763,11 +824,12 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       >
                         <button
                           type="button"
+                          aria-pressed={feedFilter === "all"}
                           onClick={() => setFeedFilter("all")}
                           className={`min-h-8 rounded-lg border px-2.5 py-1 text-xs font-semibold ${
                             feedFilter === "all"
-                              ? "border-[#0F1722] bg-[#0F1722] text-white"
-                              : "border-[#DDD8CE] bg-white text-[#475569] hover:text-[#0F1722]"
+                              ? "border-action bg-action text-white"
+                              : "border-lane bg-card text-ink-2 hover:text-ink-strong"
                           }`}
                         >
                           Todas
@@ -781,13 +843,15 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                               <button
                                 key={cfg.slug}
                                 type="button"
+                                aria-pressed={active}
                                 onClick={() => setFeedFilter(cfg.slug)}
-                                className={`min-h-8 rounded-lg border px-2.5 py-1 text-xs font-semibold ${
+                                className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border py-1 pl-1 pr-2.5 text-xs font-semibold ${
                                   active
                                     ? meta.activeButtonClass
-                                    : "border-[#DDD8CE] bg-white text-[#475569] hover:text-[#0F1722]"
+                                    : "border-lane bg-card text-ink-2 hover:text-ink-strong"
                                 }`}
                               >
+                                <LaneNumber slug={cfg.slug} />
                                 {meta.shortLabel}
                               </button>
                             );
@@ -795,6 +859,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                         {isAdmin && reportedCount > 0 && (
                           <button
                             type="button"
+                            aria-pressed={feedFilter === "reported"}
                             onClick={() => setFeedFilter("reported")}
                             className={`inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold ${
                               feedFilter === "reported"
@@ -809,7 +874,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                     </div>
 
                     {groupedFeedEntries.length === 0 ? (
-                      <div className="rounded-xl border border-dashed border-[#C7C0B3] bg-white/60 p-8 text-center text-sm text-[#475569]">
+                      <div className="rounded-xl border border-dashed border-lane-strong bg-card/60 p-8 text-center text-sm text-ink-2">
                         Nenhum check-in encontrado para este filtro.
                       </div>
                     ) : (
@@ -842,7 +907,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                             type="button"
                             disabled={loadingMoreFeed}
                             onClick={() => void handleLoadMoreFeed()}
-                            className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-4 py-2 text-xs font-semibold text-[#0F1722] hover:border-[#0F1722] disabled:opacity-50"
+                            className="min-h-10 rounded-lg border border-lane bg-card px-4 py-2 text-xs font-semibold text-ink-strong hover:border-ink-strong disabled:opacity-50"
                           >
                             {loadingMoreFeed
                               ? "Carregando anteriores..."
@@ -851,15 +916,14 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                         )}
                       </>
                     )}
-                  </section>
-                </div>
+                </section>
 
-                {/* Official Timing Board (Placar Oficial) — first on mobile, right column on desktop */}
-                <aside className="order-1 flex flex-col gap-4 lg:order-2">
-                  <div className="rounded-xl bg-[#0F1722] p-5 text-white">
+                {/* Placar Oficial: entre o formulário e o feed no celular, coluna direita no desktop. */}
+                <aside className="flex flex-col gap-4 self-start lg:col-start-3 lg:row-span-2 lg:row-start-1">
+                  <div className="rounded-xl bg-shell p-5 text-white">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-300">
-                        <Trophy className="h-4 w-4 text-[#D94E28]" />
+                        <Trophy className="h-4 w-4 text-accent-text" />
                         Placar Oficial
                       </h3>
                       <span className="font-mono text-[11px] text-slate-400">
@@ -868,7 +932,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                     </div>
 
                     <div
-                      className="mt-3 grid grid-cols-3 gap-1 rounded-lg bg-[#182232] p-1 text-[11px] font-semibold"
+                      className="mt-3 grid grid-cols-3 gap-1 rounded-lg bg-shell-raised p-1 text-[11px] font-semibold"
                       role="group"
                       aria-label="Ordenar placar"
                     >
@@ -880,10 +944,11 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                         <button
                           key={opt.id}
                           type="button"
+                          aria-pressed={leaderboardSort === opt.id}
                           onClick={() => setLeaderboardSort(opt.id)}
                           className={`min-h-7 rounded-md transition ${
                             leaderboardSort === opt.id
-                              ? "bg-[#D94E28] text-white"
+                              ? "bg-accent text-white"
                               : "text-slate-300 hover:text-white"
                           }`}
                         >
@@ -894,7 +959,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
 
                     <div className="mt-3 space-y-2.5">
                       {sortedLeaderboard.length === 0 ? (
-                        <p className="rounded-lg border border-slate-800 bg-[#182232] p-3 text-center text-xs text-slate-400">
+                        <p className="rounded-lg border border-slate-800 bg-shell-raised p-3 text-center text-xs text-slate-400">
                           Nenhum participante ainda.
                         </p>
                       ) : (
@@ -903,16 +968,16 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                             key={entry.user_id}
                             className={`flex items-center justify-between gap-2 rounded-lg border p-3 transition-colors ${
                               entry.user_id === user.id
-                                ? "border-[#D94E28] bg-[#1F2633]"
-                                : "border-slate-800 bg-[#182232]"
+                                ? "border-accent bg-shell-active"
+                                : "border-slate-800 bg-shell-raised"
                             }`}
                           >
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
                                 <span
-                                  className={`font-mono text-xs font-bold tabular-nums ${
+                                  className={`font-score text-base ${
                                     idx === 0
-                                      ? "text-[#FF8A65]"
+                                      ? "text-accent-soft"
                                       : idx < 3
                                         ? "text-amber-300"
                                         : "text-slate-400"
@@ -931,16 +996,16 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                               </div>
                               <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-300 tabular-nums">
                                 <span className="inline-flex items-center gap-1">
-                                  <Flame className="h-3 w-3 text-[#FF8A65]" />
+                                  <Flame className="h-3 w-3 text-accent-soft" />
                                   {entry.current_streak}d
                                 </span>
                                 <span>· {entry.active_days}d ativos</span>
                                 <span>· {entry.rest_days_used_this_week} rest</span>
                               </p>
                             </div>
-                            <span className="shrink-0 font-mono text-sm font-bold text-white tabular-nums">
+                            <span className="shrink-0 font-score text-2xl leading-none text-white">
                               {entry.total_points}{" "}
-                              <span className="text-xs font-normal text-slate-300">
+                              <span className="font-sans text-xs font-normal text-slate-300">
                                 {detail.challenge.scoring_mode === "checkin" ? "chk" : "pts"}
                               </span>
                             </span>
@@ -989,9 +1054,8 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
       </main>
 
       <nav
-        role="tablist"
         aria-label="Navegação móvel"
-        className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-4 border-t border-slate-800 bg-[#0F1722] pb-[env(safe-area-inset-bottom)] text-white md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-4 border-t border-slate-800 bg-shell pb-[env(safe-area-inset-bottom)] text-white md:hidden"
       >
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -1000,12 +1064,11 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
             <button
               key={item.id}
               type="button"
-              role="tab"
-              aria-selected={active}
+              aria-current={active ? "page" : undefined}
               onClick={() => switchTab(item.id)}
               className={`flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-semibold transition ${
                 active
-                  ? "border-t-2 border-[#D94E28] text-[#FF8A65]"
+                  ? "border-t-2 border-accent text-accent-soft"
                   : "text-slate-300 hover:text-white"
               }`}
             >

@@ -13,6 +13,8 @@ class CheckInCreateRequest(BaseModel):
     description: str | None = Field(default=None, max_length=5000)
     evidence_url: str | None = Field(default=None, max_length=500)
     metadata_json: dict = Field(default_factory=dict)
+    # Publica também nos outros desafios do usuário onde a categoria está habilitada.
+    publish_to_all_challenges: bool = False
 
 
 class CheckInUpdateRequest(BaseModel):
@@ -81,8 +83,31 @@ class CheckInOut(BaseModel):
     created_at: datetime
 
 
+class CheckInCreatedOut(CheckInOut):
+    """Check-in criado no desafio atual, com o resultado da publicação nos demais."""
+
+    also_published_in: list[str] = Field(default_factory=list)
+    skipped_challenges: list[str] = Field(default_factory=list)
+
+
+class DiaryChallengeEntry(BaseModel):
+    """Pontuação de um mesmo estudo em um desafio específico."""
+
+    checkin_id: uuid.UUID
+    challenge_id: uuid.UUID
+    challenge_title: str
+    points_awarded: int
+    status: Literal["valid", "invalidated"]
+
+
+class DiaryItem(CheckInOut):
+    """Item do diário: um estudo único, com a pontuação em cada desafio onde foi publicado."""
+
+    challenges: list[DiaryChallengeEntry] = Field(default_factory=list)
+
+
 class DiaryResponse(BaseModel):
-    items: list[CheckInOut]
+    items: list[DiaryItem]
     total_entries: int
     total_points: int
     by_category: dict[str, int]

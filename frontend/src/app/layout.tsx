@@ -4,9 +4,10 @@ import { Archivo, JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
+// Archivo variável: o eixo de largura (wdth) alimenta os números de placar condensados.
 const archivo = Archivo({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  axes: ["wdth"],
   variable: "--font-sans",
   display: "swap",
 });
@@ -17,6 +18,9 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-mono",
   display: "swap",
 });
+
+// Define o tema antes da hidratação para evitar o flash de tema errado.
+const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem("brainrats_theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme="light"}})();`;
 
 export const metadata: Metadata = {
   title: "BrainRats — Estudos de Programação",
@@ -43,8 +47,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${archivo.variable} ${jetbrainsMono.variable}`}>
-      <body className="min-h-screen bg-[#F3F1EC] font-sans text-[#111827] antialiased">
+    <html
+      lang="pt-BR"
+      className={`${archivo.variable} ${jetbrainsMono.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
+      <body className="min-h-screen bg-canvas font-sans text-ink antialiased">
         <Providers>{children}</Providers>
       </body>
     </html>

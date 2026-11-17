@@ -7,11 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.models.challenge import Category, Challenge, ChallengeMember
+from app.models.challenge import Category, Challenge, ChallengeCategoryConfig, ChallengeMember
 from app.models.checkin import CheckIn
 from app.models.social import CheckInComment, CheckInReaction, CheckInReport
 from app.models.user import User
 from app.schemas.checkin import (
+    CheckInCreatedOut,
     CheckInCreateRequest,
     CheckInOut,
     CheckInUpdateRequest,
@@ -25,6 +26,10 @@ from app.services.checkins import (
     publish_checkin,
     re_evaluate_checkin_mode_points_after_invalidation,
 )
+from app.services.scoring import compute_study_date
+
+# Prefixo do id compartilhado pelas cópias de um check-in manual publicado em vários desafios.
+MANUAL_CROSSPOST_PREFIX = "manual-"
 
 router = APIRouter(tags=["checkins"])
 
@@ -73,9 +78,53 @@ async def _load_single_checkin_out(
     return items[0]
 
 
+async def _crosspost_targets(
+    db: AsyncSession, primary: Challenge, user_id: uuid.UUID, category: Category
+) -> tuple[list[Challenge], list[str]]:
+    """Other challenges of the user that can receive the same check-in, plus the skipped ones."""
+    others = list(
+        (
+            await db.scalars(
+                select(Challenge)
+                .join(ChallengeMember, ChallengeMember.challenge_id == Challenge.id)
+                .where(ChallengeMember.user_id == user_id, Challenge.id != primary.id)
+                .order_by(Challenge.created_at)
+            )
+        ).all()
+    )
+    if not others:
+        return [], []
+
+    enabled_ids = set(
+        (
+            await db.scalars(
+                select(ChallengeCategoryConfig.challenge_id).where(
+                    ChallengeCategoryConfig.category_id == category.id,
+                    ChallengeCategoryConfig.is_enabled.is_(True),
+                    ChallengeCategoryConfig.challenge_id.in_([c.id for c in others]),
+                )
+            )
+        ).all()
+    )
+    now = datetime.now(UTC)
+    targets: list[Challenge] = []
+    skipped: list[str] = []
+    for other in others:
+        today = compute_study_date(now, other.timezone)
+        if other.id not in enabled_ids:
+            skipped.append(f"{other.title} (categoria desabilitada)")
+        elif today < other.start_date:
+            skipped.append(f"{other.title} (ainda não começou)")
+        elif other.end_date is not None and today > other.end_date:
+            skipped.append(f"{other.title} (encerrado)")
+        else:
+            targets.append(other)
+    return targets, skipped
+
+
 @router.post(
     "/challenges/{challenge_id}/checkins",
-    response_model=CheckInOut,
+    response_model=CheckInCreatedOut,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_checkin(
@@ -83,8 +132,8 @@ async def create_checkin(
     payload: CheckInCreateRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> CheckInOut:
-    """Register a manual study check-in in one of the 5 standard categories."""
+) -> CheckInCreatedOut:
+    """Register a manual study check-in, optionally copying it to the user's other challenges."""
     challenge, membership = await _require_membership(db, challenge_id, current_user.id)
     category = await db.scalar(select(Category).where(Category.slug == payload.category_slug))
     if category is None:
@@ -93,21 +142,39 @@ async def create_checkin(
             detail=f"Categoria '{payload.category_slug}' não encontrada.",
         )
 
-    checkin = await publish_checkin(
-        db,
-        challenge=challenge,
-        user_id=current_user.id,
-        category=category,
-        title=payload.title,
-        description=payload.description,
-        source="manual",
-        metadata_json=payload.metadata_json,
-        evidence_url=payload.evidence_url,
-    )
-    assert checkin is not None
+    others: list[Challenge] = []
+    skipped: list[str] = []
+    if payload.publish_to_all_challenges:
+        others, skipped = await _crosspost_targets(db, challenge, current_user.id, category)
+    # As cópias compartilham um id: o diário mostra um item só e a edição vale para todas.
+    shared_id = f"{MANUAL_CROSSPOST_PREFIX}{uuid.uuid4().hex}" if others else None
+
+    created: list[CheckIn] = []
+    for target in [challenge, *others]:
+        checkin = await publish_checkin(
+            db,
+            challenge=target,
+            user_id=current_user.id,
+            category=category,
+            title=payload.title,
+            description=payload.description,
+            source="manual",
+            metadata_json=payload.metadata_json,
+            evidence_url=payload.evidence_url,
+            external_event_id=shared_id,
+        )
+        assert checkin is not None
+        created.append(checkin)
+
     await db.commit()
-    await db.refresh(checkin)
-    return await _load_single_checkin_out(db, checkin, current_user.id, membership.role == "admin")
+    primary = created[0]
+    await db.refresh(primary)
+    out = await _load_single_checkin_out(db, primary, current_user.id, membership.role == "admin")
+    return CheckInCreatedOut(
+        **out.model_dump(),
+        also_published_in=[c.title for c in others],
+        skipped_challenges=skipped,
+    )
 
 
 @router.get("/challenges/{challenge_id}/feed", response_model=list[CheckInOut])
@@ -161,11 +228,31 @@ async def update_checkin(
             detail="Você só pode editar seus próprios check-ins.",
         )
 
-    if payload.title is not None:
-        checkin.title = payload.title.strip()
-    if payload.description is not None:
-        checkin.description = payload.description.strip() or None
-    checkin.search_vector = f"{checkin.title} {checkin.description or ''}".strip()
+    # Cópias do mesmo check-in manual em outros desafios recebem a mesma edição.
+    copies = [checkin]
+    if (
+        checkin.source == "manual"
+        and checkin.external_event_id
+        and checkin.external_event_id.startswith(MANUAL_CROSSPOST_PREFIX)
+    ):
+        copies = list(
+            (
+                await db.scalars(
+                    select(CheckIn).where(
+                        CheckIn.user_id == current_user.id,
+                        CheckIn.source == "manual",
+                        CheckIn.external_event_id == checkin.external_event_id,
+                    )
+                )
+            ).all()
+        )
+
+    for copy in copies:
+        if payload.title is not None:
+            copy.title = payload.title.strip()
+        if payload.description is not None:
+            copy.description = payload.description.strip() or None
+        copy.search_vector = f"{copy.title} {copy.description or ''}".strip()
 
     await db.commit()
     await db.refresh(checkin)

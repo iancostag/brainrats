@@ -1,22 +1,144 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme inline {
   --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* Superfícies e tinta: mudam com o tema (valores em :root e [data-theme="dark"]). */
+  --color-canvas: var(--surface-canvas);
+  --color-card: var(--surface-card);
+  --color-well: var(--surface-well);
+  --color-lane: var(--border-lane);
+  --color-lane-soft: var(--border-lane-soft);
+  --color-lane-strong: var(--border-lane-strong);
+  --color-ink: var(--ink-primary);
+  --color-ink-strong: var(--ink-strong);
+  --color-ink-label: var(--ink-label);
+  --color-ink-3: var(--ink-3);
+  --color-ink-2: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-rest: var(--rest);
+  --color-link: var(--link);
+  --color-accent-text: var(--accent-text);
+  --color-accent-strong: var(--accent-strong);
+}
+
+@theme {
+  /* Casca em ardósia: escura nos dois temas. */
+  --color-shell: #0f1722;
+  --color-shell-raised: #182232;
+  --color-shell-active: #1f2633;
+
+  /* Terracota de pista: ações primárias, splits cumpridos, ofensiva. */
+  --color-accent: #d94e28;
+  --color-accent-hover: #c2411e;
+  --color-accent-soft: #ff8a65;
 }
 
 :root {
   color-scheme: light;
-  --surface-shell: #0f1722;
-  --surface-shell-elevated: #182232;
   --surface-canvas: #f3f1ec;
   --surface-card: #ffffff;
   --surface-well: #faf9f6;
   --border-lane: #ddd8ce;
+  --border-lane-soft: #ebe7df;
+  --border-lane-strong: #c7c0b3;
   --ink-primary: #111827;
+  --ink-strong: #0f1722;
+  --ink-label: #1e293b;
+  --ink-3: #334155;
   --ink-secondary: #475569;
-  --accent-track: #d94e28;
-  --accent-track-hover: #c2411e;
+  --ink-muted: #64748b;
+  --ink-faint: #94a3b8;
+  --action: #0f1722;
+  --action-hover: #1e293b;
+  --rest: #e2e8f0;
+  --link: #2563eb;
+  --accent-text: #d94e28;
+  --accent-strong: #b83d1b;
+  --scrollbar-track: #ebe7df;
+  --scrollbar-thumb: #bdb5a7;
+  --scrollbar-thumb-hover: #948c7e;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-canvas: #0b1119;
+  --surface-card: #131c29;
+  --surface-well: #1a2535;
+  --border-lane: #2b384c;
+  --border-lane-soft: #223044;
+  --border-lane-strong: #3b4a62;
+  --ink-primary: #e7eaf0;
+  --ink-strong: #f3f4f7;
+  --ink-label: #d5dbe6;
+  --ink-3: #bcc6d6;
+  --ink-secondary: #a3afc2;
+  --ink-muted: #8e9bb0;
+  --ink-faint: #64748b;
+  --action: #2e3d55;
+  --action-hover: #3a4b68;
+  --rest: #2b384c;
+  --link: #7aa7ff;
+  --accent-text: #ff8a65;
+  --accent-strong: #ff9a7a;
+  --scrollbar-track: #0f1722;
+  --scrollbar-thumb: #3b4a62;
+  --scrollbar-thumb-hover: #52627d;
+
+  /* Paleta de estados e categorias invertida: fundos escuros, texto claro. */
+  --color-red-50: #2a1418;
+  --color-red-100: #3b1a1f;
+  --color-red-600: #f87171;
+  --color-red-800: #fca5a5;
+  --color-red-900: #fecaca;
+  --color-red-950: #fee2e2;
+  --color-amber-50: #2a2010;
+  --color-amber-100: #3a2c12;
+  --color-amber-600: #fbbf24;
+  --color-amber-700: #fbbf24;
+  --color-amber-800: #fcd34d;
+  --color-amber-900: #fde68a;
+  --color-amber-950: #fef3c7;
+  --color-emerald-50: #0f2a20;
+  --color-emerald-100: #14372a;
+  --color-emerald-700: #34d399;
+  --color-emerald-800: #6ee7b7;
+  --color-emerald-900: #a7f3d0;
+  --color-emerald-950: #d1fae5;
+  --color-blue-50: #0f1f3a;
+  --color-blue-100: #14294d;
+  --color-blue-700: #60a5fa;
+  --color-blue-800: #93c5fd;
+  --color-blue-900: #bfdbfe;
+  --color-blue-950: #dbeafe;
+  --color-violet-50: #1e1838;
+  --color-violet-100: #2a2150;
+  --color-violet-700: #a78bfa;
+  --color-violet-800: #c4b5fd;
+  --color-violet-900: #ddd6fe;
+  --color-violet-950: #ede9fe;
+  --color-teal-50: #0e2a2a;
+  --color-teal-100: #123838;
+  --color-teal-700: #2dd4bf;
+  --color-teal-800: #5eead4;
+  --color-teal-900: #99f6e4;
+  --color-teal-950: #ccfbf1;
+}
+
+/* Números de placar: Archivo condensada e pesada, algarismos tabulares. */
+@utility font-score {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-stretch: 72%;
+  font-variation-settings: "wdth" 72;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 
 @layer base {
@@ -29,23 +151,23 @@
 body {
   background-color: var(--surface-canvas);
   color: var(--ink-primary);
-  caret-color: var(--accent-track);
+  caret-color: var(--color-accent);
 }
 
+/* Movimento reduzido: mantém a mudança de estado, remove deslocamento e giro. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
 }
 
 ::selection {
-  background-color: rgba(217, 78, 40, 0.2);
-  color: #0f1722;
+  background-color: rgba(217, 78, 40, 0.25);
+  color: inherit;
 }
 
 ::-webkit-scrollbar {
@@ -54,16 +176,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #ebe7df;
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #bdb5a7;
+  background: var(--scrollbar-thumb);
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #948c7e;
+  background: var(--scrollbar-thumb-hover);
 }
 
 a {
@@ -74,7 +196,79 @@ button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
-select:focus-visible {
-  outline: 2px solid #d94e28;
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* Entrada de cartões e feedback de publicação: um único gesto, curva exponencial. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes stamp {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-rise-in {
+  animation: rise-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-stamp {
+  animation: stamp 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Esqueleto de carregamento. */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton {
+  background-image: linear-gradient(
+    90deg,
+    var(--border-lane-soft) 25%,
+    var(--surface-well) 50%,
+    var(--border-lane-soft) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+  border-radius: 0.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* Faixas de ações com rolagem horizontal no celular: a borda cortada já indica que há mais. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

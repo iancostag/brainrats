@@ -72,10 +72,10 @@ export default function HomePage() {
       <main
         role="status"
         aria-live="polite"
-        className="flex min-h-screen items-center justify-center bg-[#F3F1EC] px-6"
+        className="flex min-h-screen items-center justify-center bg-canvas px-6"
       >
-        <div className="flex items-center gap-3 rounded-xl border border-[#DDD8CE] bg-white px-5 py-4 text-sm font-medium text-[#475569]">
-          <RefreshCw className="h-4 w-4 animate-spin text-[#D94E28]" />
+        <div className="flex items-center gap-3 rounded-xl border border-lane bg-card px-5 py-4 text-sm font-medium text-ink-2">
+          <RefreshCw className="h-4 w-4 animate-spin text-accent-text" />
           <span>Carregando sua sessão no BrainRats...</span>
         </div>
       </main>
@@ -84,17 +84,17 @@ export default function HomePage() {
 
   if (sessionError) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F3F1EC] px-6">
-        <div className="flex max-w-md flex-col gap-4 rounded-xl border border-[#DDD8CE] bg-white p-6 text-center">
-          <h1 className="text-lg font-bold text-[#0F1722]">
+      <main className="flex min-h-screen items-center justify-center bg-canvas px-6">
+        <div className="flex max-w-md flex-col gap-4 rounded-xl border border-lane bg-card p-6 text-center">
+          <h1 className="text-lg font-bold text-ink-strong">
             Falha ao conectar com o servidor
           </h1>
-          <p className="text-sm text-[#475569]">{sessionError}</p>
+          <p className="text-sm text-ink-2">{sessionError}</p>
           <div className="flex flex-wrap justify-center gap-3">
             <button
               type="button"
               onClick={() => void validateSession()}
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-[#D94E28] px-4 py-2 text-sm font-semibold text-white hover:bg-[#C2411E]"
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
             >
               <RefreshCw className="h-4 w-4" /> Tentar novamente
             </button>
@@ -105,7 +105,7 @@ export default function HomePage() {
                 setSessionError(null);
                 setUser(null);
               }}
-              className="min-h-10 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-4 py-2 text-sm font-medium text-[#111827] hover:border-[#0F1722]"
+              className="min-h-10 rounded-lg border border-lane bg-well px-4 py-2 text-sm font-medium text-ink hover:border-ink-strong"
             >
               Trocar de conta
             </button>

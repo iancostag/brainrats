@@ -136,8 +136,21 @@ export interface CheckIn {
   created_at: string;
 }
 
+export interface DiaryChallengeEntry {
+  checkin_id: string;
+  challenge_id: string;
+  challenge_title: string;
+  points_awarded: number;
+  status: "valid" | "invalidated";
+}
+
+/** Estudo único no diário, com a pontuação em cada desafio onde foi publicado. */
+export interface DiaryItem extends CheckIn {
+  challenges: DiaryChallengeEntry[];
+}
+
 export interface DiaryResponse {
-  items: CheckIn[];
+  items: DiaryItem[];
   total_entries: number;
   total_points: number;
   by_category: Record<string, number>;
@@ -343,6 +356,12 @@ export function fetchChallengeFeed(
   return apiRequest<CheckIn[]>(`/challenges/${challengeId}/feed${qs ? `?${qs}` : ""}`);
 }
 
+/** Check-in recém-criado, com os outros desafios que receberam a cópia. */
+export interface CheckInCreated extends CheckIn {
+  also_published_in: string[];
+  skipped_challenges: string[];
+}
+
 export function createCheckin(
   challengeId: string,
   payload: {
@@ -351,9 +370,10 @@ export function createCheckin(
     description?: string;
     evidence_url?: string;
     metadata_json: Record<string, unknown>;
+    publish_to_all_challenges?: boolean;
   },
-): Promise<CheckIn> {
-  return apiRequest<CheckIn>(`/challenges/${challengeId}/checkins`, {
+): Promise<CheckInCreated> {
+  return apiRequest<CheckInCreated>(`/challenges/${challengeId}/checkins`, {
     method: "POST",
     body: JSON.stringify(payload),
   });

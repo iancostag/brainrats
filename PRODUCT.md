@@ -32,7 +32,7 @@ Constância social sem fricção: combina grupos entre amigos, publicação auto
 ## Capabilities and Constraints
 
 - **5 categorias padrão no MVP:** LeetCode, Continuidade de Projeto, Leitura de Livros, ESW (System Design, arquitetura, padrões, testes, docs e cursos técnicos) e Dados (SQL, modelagem, pipelines/ETL, Python/Pandas, BI e ML).
-- **1 desafio por check-in no MVP:** cada check-in pontua em um único desafio; suporte a múltiplos desafios simultâneos fica fora do escopo inicial.
+- **Publicação em todos os desafios:** um check-in manual vai, por padrão, para todos os desafios do usuário onde a categoria está habilitada e o desafio está em andamento; uma opção permite publicar só no desafio selecionado. Cada cópia pontua pelas regras do próprio desafio, e o diário mostra o estudo uma vez só.
 - **Fuso horário por desafio:** virada do dia para *streak*, janela de check-in e teto diário usa o fuso definido no desafio.
 - **Moderação centralizada:** membros denunciam check-ins suspeitos e o criador/admin do grupo tem a decisão final de invalidar ou restaurar os pontos.
 - **Decisão aberta pós-MVP:** login OAuth completo do GitHub com seleção granular de repositórios privados e worker assíncrono em fila Redis/ARQ (o MVP local atual usa login rápido por username + sync sob demanda).

@@ -14,6 +14,10 @@ export interface CategoryMeta {
   label: string;
   shortLabel: string;
   icon: LucideIcon;
+  /** Número fixo da raia (1–5), usado junto da cor para identificar a categoria. */
+  lane: number;
+  /** Fundo sólido da raia + texto contrastante, para o número da raia. */
+  laneClass: string;
   badgeClass: string;
   activeButtonClass: string;
 }
@@ -24,6 +28,8 @@ export const CATEGORY_META: Record<CategorySlug, CategoryMeta> = {
     label: "LeetCode",
     shortLabel: "LeetCode",
     icon: Code2,
+    lane: 1,
+    laneClass: "bg-amber-700 text-amber-50",
     badgeClass: "border-amber-600/35 bg-amber-50 text-amber-900",
     activeButtonClass: "border-amber-700 bg-amber-100 text-amber-950",
   },
@@ -32,6 +38,8 @@ export const CATEGORY_META: Record<CategorySlug, CategoryMeta> = {
     label: "Projeto",
     shortLabel: "Projeto",
     icon: GitBranch,
+    lane: 2,
+    laneClass: "bg-emerald-700 text-emerald-50",
     badgeClass: "border-emerald-700/35 bg-emerald-50 text-emerald-900",
     activeButtonClass: "border-emerald-800 bg-emerald-100 text-emerald-950",
   },
@@ -40,6 +48,8 @@ export const CATEGORY_META: Record<CategorySlug, CategoryMeta> = {
     label: "Livros",
     shortLabel: "Livros",
     icon: BookOpen,
+    lane: 3,
+    laneClass: "bg-blue-700 text-blue-50",
     badgeClass: "border-blue-700/35 bg-blue-50 text-blue-900",
     activeButtonClass: "border-blue-800 bg-blue-100 text-blue-950",
   },
@@ -48,6 +58,8 @@ export const CATEGORY_META: Record<CategorySlug, CategoryMeta> = {
     label: "ESW (Eng. de Software)",
     shortLabel: "ESW",
     icon: Layers,
+    lane: 4,
+    laneClass: "bg-violet-700 text-violet-50",
     badgeClass: "border-violet-700/35 bg-violet-50 text-violet-900",
     activeButtonClass: "border-violet-800 bg-violet-100 text-violet-950",
   },
@@ -56,6 +68,8 @@ export const CATEGORY_META: Record<CategorySlug, CategoryMeta> = {
     label: "Dados",
     shortLabel: "Dados",
     icon: Database,
+    lane: 5,
+    laneClass: "bg-teal-700 text-teal-50",
     badgeClass: "border-teal-700/35 bg-teal-50 text-teal-900",
     activeButtonClass: "border-teal-800 bg-teal-100 text-teal-950",
   },
@@ -149,4 +163,32 @@ export function formatDateTimeBr(iso: string | null): string {
   } catch {
     return iso;
   }
+}
+
+const WEEKDAY_PT = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+function localTodayIso(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Data de estudo (YYYY-MM-DD) em formato relativo: "hoje", "ontem" ou "seg, 16/11".
+ * Datas de outro ano levam o ano: "seg, 16/11/2025".
+ */
+export function formatStudyDate(iso: string, todayIso: string = localTodayIso()): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const date = Date.UTC(y, m - 1, d);
+  const [ty, tm, td] = todayIso.split("-").map(Number);
+  const today = Date.UTC(ty, tm - 1, td);
+  const diffDays = Math.round((today - date) / 86_400_000);
+  if (diffDays === 0) return "hoje";
+  if (diffDays === 1) return "ontem";
+  const weekday = WEEKDAY_PT[new Date(date).getUTCDay()];
+  const dayMonth = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
+  return y === ty ? `${weekday}, ${dayMonth}` : `${weekday}, ${dayMonth}/${y}`;
 }

@@ -26,7 +26,10 @@ import {
   CATEGORY_META,
   formatMetadataChips,
   formatPointsLabel,
+  formatStudyDate,
 } from "@/lib/categories";
+import { ActionMenu, type ActionMenuItem } from "@/components/action-menu";
+import { LaneBadge } from "@/components/lane-badge";
 
 interface CheckinCardProps {
   checkin: CheckIn;
@@ -66,6 +69,7 @@ export function CheckinCard({
   const [editDescription, setEditDescription] = useState(checkin.description ?? "");
 
   const [commentText, setCommentText] = useState("");
+  const [showCommentBox, setShowCommentBox] = useState(false);
   const [showReportBox, setShowReportBox] = useState(false);
   const [reportReason, setReportReason] = useState("");
 
@@ -115,7 +119,10 @@ export function CheckinCard({
     event.preventDefault();
     if (!commentText.trim()) return;
     const ok = await runAction(() => addComment(checkin.id, commentText.trim()));
-    if (ok) setCommentText("");
+    if (ok) {
+      setCommentText("");
+      setShowCommentBox(false);
+    }
   }
 
   async function handleReport(event: FormEvent) {
@@ -145,16 +152,53 @@ export function CheckinCard({
 
   const isInvalidated = checkin.status === "invalidated";
   const categoryMeta = CATEGORY_META[checkin.category_slug];
-  const CategoryIcon = categoryMeta?.icon;
   const metadataChips = formatMetadataChips(checkin.category_slug, checkin.metadata_json);
   const pointsLabel = formatPointsLabel(checkin.points_awarded, scoringMode, checkin.status);
+
+  const menuItems: ActionMenuItem[] = [];
+  if (isAuthor && !editing) {
+    menuItems.push({
+      label: "Editar título e notas",
+      icon: Pencil,
+      onSelect: () => {
+        setEditTitle(checkin.title);
+        setEditDescription(checkin.description ?? "");
+        setEditing(true);
+      },
+    });
+  }
+  if (isMember && !isAuthor) {
+    menuItems.push({
+      label: "Denunciar",
+      icon: Flag,
+      onSelect: () => setShowReportBox(true),
+    });
+  }
+  if (isChallengeAdmin) {
+    menuItems.push(
+      isInvalidated
+        ? {
+            label: "Restaurar pontos",
+            icon: RotateCcw,
+            disabled: busy,
+            onSelect: () => void runAction(() => moderateCheckin(checkin.id, "restore")),
+          }
+        : {
+            label: "Invalidar",
+            icon: ShieldAlert,
+            tone: "danger",
+            disabled: busy,
+            onSelect: () => setShowModerateBox(true),
+          },
+    );
+  }
 
   return (
     <article
       className={`group flex flex-col gap-3 rounded-xl border p-4 transition sm:p-5 ${
         isInvalidated
           ? "border-red-600/35 bg-red-50/70"
-          : "border-[#DDD8CE] bg-white hover:border-[#C7C0B3]"
+          : "border-lane bg-card hover:border-lane-strong"
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -165,41 +209,36 @@ export function CheckinCard({
               src={checkin.avatar_url}
               alt={`Avatar de ${checkin.display_name}`}
               onError={() => setAvatarFailed(true)}
-              className="h-9 w-9 rounded-full border border-[#DDD8CE] object-cover"
+              className="h-9 w-9 rounded-full border border-lane object-cover"
             />
           ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0F1722] text-xs font-bold text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-action text-xs font-bold text-white">
               {checkin.display_name.slice(0, 2).toUpperCase()}
             </div>
           )}
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-[#0F1722]">{checkin.display_name}</span>
-              <span className="font-mono text-xs text-[#64748B]">@{checkin.username}</span>
+              <span className="font-semibold text-ink-strong">{checkin.display_name}</span>
+              <span className="font-mono text-xs text-ink-muted">@{checkin.username}</span>
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-[#475569]">
-              <span className="font-mono">{checkin.study_date}</span>
-              {categoryMeta && (
-                <span
-                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${categoryMeta.badgeClass}`}
-                >
-                  {CategoryIcon && <CategoryIcon className="h-3 w-3" />}
-                  {categoryMeta.shortLabel}
-                </span>
-              )}
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-ink-2">
+              <time dateTime={checkin.study_date} title={checkin.study_date}>
+                {formatStudyDate(checkin.study_date)}
+              </time>
+              {categoryMeta && <LaneBadge slug={checkin.category_slug} />}
             </div>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-[#DDD8CE] bg-[#FAF9F6] px-2.5 py-0.5 text-xs font-medium text-[#475569]">
+          <span className="rounded-full border border-lane bg-well px-2.5 py-0.5 text-xs font-medium text-ink-2">
             {SOURCE_LABELS[checkin.source]}
           </span>
           <span
-            className={`rounded-full border px-2.5 py-0.5 font-mono text-xs font-bold tabular-nums ${
+            className={`rounded-full border px-2.5 py-0.5 font-score text-sm ${
               isInvalidated
                 ? "border-red-600/35 bg-red-100 text-red-900"
-                : "border-[#D94E28]/30 bg-[#D94E28]/10 text-[#B83D1B]"
+                : "border-accent/30 bg-accent/10 text-accent-strong"
             }`}
           >
             {pointsLabel}
@@ -215,7 +254,7 @@ export function CheckinCard({
             onChange={(e) => setEditTitle(e.target.value)}
             onKeyDown={(e) => handleEscape(e, () => setEditing(false))}
             aria-label="Editar título do check-in"
-            className="min-h-10 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722] transition-colors focus:border-[#0F1722]"
+            className="min-h-10 rounded-lg border border-lane bg-well px-3 py-1.5 text-sm text-ink-strong transition-colors focus:border-ink-strong"
             required
           />
           <textarea
@@ -225,20 +264,20 @@ export function CheckinCard({
             onKeyDown={(e) => handleEscape(e, () => setEditing(false))}
             placeholder="Descrição livre..."
             aria-label="Editar descrição do check-in"
-            className="rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722] transition-colors focus:border-[#0F1722]"
+            className="rounded-lg border border-lane bg-well px-3 py-1.5 text-sm text-ink-strong transition-colors focus:border-ink-strong"
           />
           <div className="flex gap-2">
             <button
               type="submit"
               disabled={busy}
-              className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-[#0F1722] px-3 py-1.5 text-xs font-semibold text-white"
+              className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-action px-3 py-1.5 text-xs font-semibold text-white"
             >
               <Check className="h-3.5 w-3.5" /> Salvar
             </button>
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-[#DDD8CE] bg-white px-3 py-1.5 text-xs font-medium text-[#334155]"
+              className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-lane bg-card px-3 py-1.5 text-xs font-medium text-ink-3"
             >
               <X className="h-3.5 w-3.5" /> Cancelar (Esc)
             </button>
@@ -247,24 +286,10 @@ export function CheckinCard({
       ) : (
         <div>
           <div className="flex items-start justify-between gap-2">
-            <h4 className="text-base font-bold text-[#0F1722]">{checkin.title}</h4>
-            {isAuthor && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditTitle(checkin.title);
-                  setEditDescription(checkin.description ?? "");
-                  setEditing(true);
-                }}
-                className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-[#64748B] opacity-90 transition hover:bg-[#FAF9F6] hover:text-[#0F1722] sm:opacity-70 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
-                title="Editar título e descrição"
-              >
-                <Pencil className="h-3.5 w-3.5" /> Editar
-              </button>
-            )}
+            <h4 className="text-base font-bold text-ink-strong">{checkin.title}</h4>
           </div>
           {checkin.description && (
-            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-[#334155]">
+            <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-3">
               {checkin.description}
             </p>
           )}
@@ -273,7 +298,7 @@ export function CheckinCard({
               {metadataChips.map((chip, idx) => (
                 <span
                   key={`${chip}-${idx}`}
-                  className="rounded-md border border-[#DDD8CE] bg-[#FAF9F6] px-2 py-0.5 font-mono text-[11px] font-medium text-[#334155]"
+                  className="rounded-md border border-lane bg-well px-2 py-0.5 font-mono text-[11px] font-medium text-ink-3"
                 >
                   {chip}
                 </span>
@@ -285,7 +310,7 @@ export function CheckinCard({
               href={checkin.evidence_url}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-flex min-h-8 items-center gap-1 text-xs font-semibold text-[#2563EB] hover:underline"
+              className="mt-2 inline-flex min-h-8 items-center gap-1 text-xs font-semibold text-link hover:underline"
             >
               <ExternalLink className="h-3.5 w-3.5" /> Ver evidência / link
             </a>
@@ -314,7 +339,7 @@ export function CheckinCard({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#EBE7DF] pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-lane-soft pt-3">
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Reações">
           {REACTION_ITEMS.map((item) => {
             const count = checkin.reactions[item.type] ?? 0;
@@ -327,55 +352,37 @@ export function CheckinCard({
                 aria-label={`Reagir com ${item.label} (${count})`}
                 aria-pressed={active}
                 onClick={() => void runAction(() => toggleReaction(checkin.id, item.type))}
-                className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold tabular-nums transition ${
+                className={`inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-semibold transition ${
                   active
-                    ? "border-[#D94E28] bg-[#D94E28]/10 text-[#B83D1B]"
-                    : "border-[#DDD8CE] bg-[#FAF9F6] text-[#475569] hover:border-[#94A3B8] hover:text-[#0F1722]"
+                    ? "border-accent bg-accent/10 text-accent-strong"
+                    : count > 0
+                      ? "border-lane bg-well text-ink-2 hover:border-ink-faint hover:text-ink-strong"
+                      : "border-transparent text-ink-2 opacity-70 hover:border-lane hover:bg-well hover:opacity-100"
                 } disabled:opacity-50`}
               >
                 <span aria-hidden="true">{item.emoji}</span>
-                <span>{count}</span>
+                {count > 0 && <span className="font-score text-sm">{count}</span>}
               </button>
             );
           })}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {isMember && !isAuthor && (
+        <div className="flex items-center gap-1">
+          {isMember && (
             <button
               type="button"
-              aria-expanded={showReportBox}
-              onClick={() => setShowReportBox((prev) => !prev)}
-              className="inline-flex min-h-10 items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-[#64748B] hover:bg-[#FAF9F6] hover:text-amber-800"
+              aria-expanded={showCommentBox}
+              onClick={() => setShowCommentBox((prev) => !prev)}
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold text-ink-2 transition-colors hover:bg-well hover:text-ink-strong"
             >
-              <Flag className="h-3.5 w-3.5" /> Denunciar
-              {checkin.reports_count > 0 && ` (${checkin.reports_count})`}
+              <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+              Comentar
+              {checkin.comments.length > 0 && (
+                <span className="font-score text-sm">{checkin.comments.length}</span>
+              )}
             </button>
           )}
-
-          {isChallengeAdmin &&
-            (isInvalidated ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  void runAction(() => moderateCheckin(checkin.id, "restore"))
-                }
-                className="inline-flex min-h-10 items-center gap-1 rounded-md border border-emerald-700/40 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-900 transition hover:bg-emerald-100"
-              >
-                <RotateCcw className="h-3.5 w-3.5" /> Restaurar
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={busy}
-                aria-expanded={showModerateBox}
-                onClick={() => setShowModerateBox((prev) => !prev)}
-                className="inline-flex min-h-10 items-center gap-1 rounded-md border border-red-600/35 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-900 transition hover:bg-red-100"
-              >
-                <ShieldAlert className="h-3.5 w-3.5" /> Invalidar
-              </button>
-            ))}
+          <ActionMenu items={menuItems} label="Mais ações do check-in" />
         </div>
       </div>
 
@@ -390,11 +397,12 @@ export function CheckinCard({
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
               type="text"
+              autoFocus
               value={moderateReason}
               onChange={(e) => setModerateReason(e.target.value)}
               onKeyDown={(e) => handleEscape(e, () => setShowModerateBox(false))}
               placeholder="Motivo visível no card (ex: commit vazio / fora do escopo)..."
-              className="min-h-10 flex-1 rounded-lg border border-red-600/40 bg-white px-3 py-1.5 text-xs text-[#0F1722]"
+              className="min-h-10 flex-1 rounded-lg border border-red-600/40 bg-card px-3 py-1.5 text-xs text-ink-strong"
               required
             />
             <div className="flex gap-2">
@@ -408,7 +416,7 @@ export function CheckinCard({
               <button
                 type="button"
                 onClick={() => setShowModerateBox(false)}
-                className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-1.5 text-xs font-medium text-[#334155]"
+                className="min-h-10 rounded-lg border border-lane bg-card px-3 py-1.5 text-xs font-medium text-ink-3"
               >
                 Cancelar
               </button>
@@ -421,11 +429,12 @@ export function CheckinCard({
         <form onSubmit={handleReport} className="flex flex-col gap-2 sm:flex-row">
           <input
             type="text"
+            autoFocus
             value={reportReason}
             onChange={(e) => setReportReason(e.target.value)}
             onKeyDown={(e) => handleEscape(e, () => setShowReportBox(false))}
             placeholder="Descreva o motivo da denúncia..."
-            className="min-h-10 flex-1 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 text-xs text-[#0F1722] transition-colors focus:border-[#0F1722]"
+            className="min-h-10 flex-1 rounded-lg border border-lane bg-well px-3 py-1.5 text-xs text-ink-strong transition-colors focus:border-ink-strong"
             required
           />
           <div className="flex gap-2">
@@ -439,7 +448,7 @@ export function CheckinCard({
             <button
               type="button"
               onClick={() => setShowReportBox(false)}
-              className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-1.5 text-xs font-medium text-[#334155]"
+              className="min-h-10 rounded-lg border border-lane bg-card px-3 py-1.5 text-xs font-medium text-ink-3"
             >
               Cancelar
             </button>
@@ -448,31 +457,32 @@ export function CheckinCard({
       )}
 
       {checkin.comments.length > 0 && (
-        <div className="space-y-1.5 border-t border-[#EBE7DF] pt-2.5">
+        <div className="space-y-1.5 border-t border-lane-soft pt-2.5">
           {checkin.comments.map((cm) => (
-            <div key={cm.id} className="text-xs text-[#334155]">
-              <span className="font-semibold text-[#0F1722]">{cm.display_name}</span>{" "}
-              <span className="font-mono text-[#64748B]">@{cm.username}:</span> {cm.content}
+            <div key={cm.id} className="text-xs text-ink-3">
+              <span className="font-semibold text-ink-strong">{cm.display_name}</span>{" "}
+              <span className="font-mono text-ink-muted">@{cm.username}:</span> {cm.content}
             </div>
           ))}
         </div>
       )}
 
-      {isMember && (
+      {isMember && showCommentBox && (
         <form onSubmit={handleAddComment} className="flex items-center gap-2">
-          <MessageSquare className="h-3.5 w-3.5 shrink-0 text-[#64748B]" />
           <input
             type="text"
+            autoFocus
             value={commentText}
             onChange={(e) => setCommentText(e.target.value)}
+            onKeyDown={(e) => handleEscape(e, () => setShowCommentBox(false))}
             placeholder="Adicionar comentário..."
             aria-label="Adicionar comentário"
-            className="min-h-10 flex-1 rounded-lg border border-[#DDD8CE] bg-[#FAF9F6] px-3 py-1.5 text-xs text-[#0F1722] placeholder:text-[#64748B]"
+            className="min-h-10 flex-1 rounded-lg border border-lane bg-well px-3 py-1.5 text-xs text-ink-strong placeholder:text-ink-muted"
           />
           <button
             type="submit"
             disabled={busy || !commentText.trim()}
-            className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-3 py-1.5 text-xs font-semibold text-[#0F1722] transition-colors hover:border-[#0F1722] disabled:opacity-40"
+            className="min-h-10 rounded-lg border border-lane bg-card px-3 py-1.5 text-xs font-semibold text-ink-strong transition-colors hover:border-ink-strong disabled:opacity-40"
           >
             Comentar
           </button>

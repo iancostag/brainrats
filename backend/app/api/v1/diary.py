@@ -11,7 +11,7 @@ from app.core.security import get_current_user
 from app.models.challenge import Category, ChallengeMember
 from app.models.checkin import CheckIn
 from app.models.user import User
-from app.schemas.checkin import DiaryResponse
+from app.schemas.checkin import DiaryChallengeEntry, DiaryItem, DiaryResponse
 from app.services.checkins import hydrate_checkins
 
 router = APIRouter(prefix="/diary", tags=["diary"])
@@ -69,14 +69,38 @@ async def search_diary(
             )
         )
     ).all()
-    items = await hydrate_checkins(db, checkins, current_user.id, set(admin_memberships))
+    hydrated = await hydrate_checkins(db, checkins, current_user.id, set(admin_memberships))
+
+    # O mesmo estudo em N desafios (sync ou publicação manual em todos) vira um item só.
+    external_ids = {c.id: c.external_event_id for c in checkins}
+    grouped: dict[tuple[str, str], DiaryItem] = {}
+    items: list[DiaryItem] = []
+    for checkin in hydrated:
+        entry = DiaryChallengeEntry(
+            checkin_id=checkin.id,
+            challenge_id=checkin.challenge_id,
+            challenge_title=checkin.challenge_title,
+            points_awarded=checkin.points_awarded,
+            status=checkin.status,
+        )
+        external_id = external_ids.get(checkin.id)
+        key = (checkin.source, external_id) if external_id else None
+        if key is not None and key in grouped:
+            grouped[key].challenges.append(entry)
+            continue
+        diary_item = DiaryItem(**checkin.model_dump(), challenges=[entry])
+        if key is not None:
+            grouped[key] = diary_item
+        items.append(diary_item)
 
     by_category: dict[str, int] = defaultdict(int)
     total_points = 0
     for item in items:
         by_category[item.category_slug] += 1
-        if item.status == "valid":
-            total_points += item.points_awarded
+        # Cada estudo conta uma vez: vale a maior pontuação válida entre os desafios.
+        total_points += max(
+            (e.points_awarded for e in item.challenges if e.status == "valid"), default=0
+        )
 
     return DiaryResponse(
         items=items,
