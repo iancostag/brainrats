@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@theme inline {
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+}
+
 :root {
   color-scheme: dark;
 }
@@ -7,4 +12,42 @@
 body {
   background-color: #09090b;
   color: #fafafa;
+  caret-color: #34d399;
+}
+
+::selection {
+  background-color: rgba(16, 185, 129, 0.28);
+  color: #ecfdf5;
+}
+
+/* Subtle dark scrollbar matching the zinc/emerald palette */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #09090b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+a {
+  text-underline-offset: 3px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid #34d399;
+  outline-offset: 2px;
 }

@@ -1,6 +1,14 @@
 "use client";
 
-import { KeyRound, Lock, Globe, Plus, Users } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Globe,
+  KeyRound,
+  Lock,
+  Plus,
+  Users,
+} from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import {
@@ -11,6 +19,7 @@ import {
   type ScoringMode,
   type Visibility,
 } from "@/lib/api";
+import { formatTimezoneLabel } from "@/lib/categories";
 
 interface ChallengesTabProps {
   challenges: ChallengeListItem[];
@@ -28,19 +37,25 @@ const DEFAULT_CATEGORY_CONFIGS: Array<{
   { category_slug: "leetcode", label: "LeetCode", is_enabled: true, base_points: 10, daily_cap: 70 },
   {
     category_slug: "project",
-    label: "Continuidade de Projeto",
+    label: "Projeto",
     is_enabled: true,
     base_points: 15,
     daily_cap: 50,
   },
   {
     category_slug: "books",
-    label: "Leitura de Livros",
+    label: "Livros",
     is_enabled: true,
     base_points: 15,
     daily_cap: 40,
   },
-  { category_slug: "esw", label: "ESW", is_enabled: true, base_points: 15, daily_cap: 50 },
+  {
+    category_slug: "esw",
+    label: "ESW (Eng. de Software)",
+    is_enabled: true,
+    base_points: 15,
+    daily_cap: 50,
+  },
   { category_slug: "data", label: "Dados", is_enabled: true, base_points: 15, daily_cap: 50 },
 ];
 
@@ -60,6 +75,7 @@ export function ChallengesTab({
   const [timezone, setTimezone] = useState("America/Sao_Paulo");
   const [restDaysPerWeek, setRestDaysPerWeek] = useState("1");
   const [dailyPointsCap, setDailyPointsCap] = useState("100");
+  const [showAdvancedWeights, setShowAdvancedWeights] = useState(false);
   const [catConfigs, setCatConfigs] = useState(DEFAULT_CATEGORY_CONFIGS);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -96,6 +112,22 @@ export function ChallengesTab({
   async function handleCreateChallenge(event: FormEvent) {
     event.preventDefault();
     if (!title.trim()) return;
+    if (!catConfigs.some((c) => c.is_enabled)) {
+      setCreateError("Ative pelo menos uma categoria para o desafio.");
+      return;
+    }
+
+    const globalCap = Number(dailyPointsCap) || 100;
+    if (
+      scoringMode === "points" &&
+      catConfigs.some((c) => c.is_enabled && c.daily_cap > globalCap)
+    ) {
+      setCreateError(
+        `O teto de nenhuma categoria pode ultrapassar o teto global (${globalCap} pts/dia).`,
+      );
+      return;
+    }
+
     setCreateError(null);
     setCreating(true);
     try {
@@ -106,7 +138,7 @@ export function ChallengesTab({
         scoring_mode: scoringMode,
         timezone,
         rest_days_per_week: Number(restDaysPerWeek) || 0,
-        daily_points_cap: Number(dailyPointsCap) || 100,
+        daily_points_cap: globalCap,
         category_configs: catConfigs.map((c) => ({
           category_slug: c.category_slug,
           is_enabled: c.is_enabled,
@@ -141,17 +173,25 @@ export function ChallengesTab({
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
               placeholder="Ex: CODERATS"
-              className="flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm uppercase text-zinc-100 outline-none focus:border-emerald-500"
+              aria-label="Código de convite do grupo"
+              className="min-h-11 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm uppercase text-zinc-100"
             />
             <button
               type="submit"
               disabled={joining || !inviteCode.trim()}
-              className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-emerald-400 disabled:opacity-50"
+              className="min-h-11 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-emerald-400 disabled:opacity-50"
             >
               Entrar
             </button>
           </div>
-          {joinError && <p className="text-xs text-red-400">{joinError}</p>}
+          {joinError && (
+            <p
+              role="alert"
+              className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+            >
+              {joinError}
+            </p>
+          )}
         </form>
 
         <div className="flex flex-col gap-3">
@@ -168,7 +208,7 @@ export function ChallengesTab({
                     <p className="mt-1 text-xs text-zinc-400">{ch.description}</p>
                   )}
                 </div>
-                <span className="inline-flex items-center gap-1 rounded-full border border-zinc-700 px-2.5 py-0.5 text-xs text-zinc-300">
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-zinc-700 px-2.5 py-0.5 text-xs text-zinc-300">
                   {ch.visibility === "private" ? (
                     <>
                       <Lock className="h-3 w-3" /> Privado
@@ -186,18 +226,18 @@ export function ChallengesTab({
                   <span className="rounded bg-zinc-800 px-2 py-0.5 text-zinc-200">
                     {ch.scoring_mode === "checkin" ? "Modo Check-in" : "Modo Pontuação"}
                   </span>
-                  <span>Fuso: {ch.timezone}</span>
-                  <span className="inline-flex items-center gap-1">
+                  <span>{formatTimezoneLabel(ch.timezone)}</span>
+                  <span className="inline-flex items-center gap-1 tabular-nums">
                     <Users className="h-3.5 w-3.5" /> {ch.members_count}
                   </span>
-                  <span>Convite: {ch.invite_code}</span>
+                  <span className="font-mono">Convite: {ch.invite_code}</span>
                 </div>
 
                 {ch.is_member ? (
                   <button
                     type="button"
                     onClick={() => onSelectChallenge(ch.id)}
-                    className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 font-medium text-emerald-300 hover:bg-emerald-500/20"
+                    className="min-h-10 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 font-medium text-emerald-300 hover:bg-emerald-500/20"
                   >
                     Abrir Desafio
                   </button>
@@ -206,7 +246,7 @@ export function ChallengesTab({
                     type="button"
                     disabled={joining}
                     onClick={() => void handleJoinPublic(ch.id)}
-                    className="rounded-lg bg-emerald-500 px-3 py-1 font-semibold text-zinc-950 hover:bg-emerald-400"
+                    className="min-h-10 rounded-lg bg-emerald-500 px-3 py-1.5 font-semibold text-zinc-950 hover:bg-emerald-400"
                   >
                     Participar
                   </button>
@@ -234,7 +274,7 @@ export function ChallengesTab({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex: Clube ESW + LeetCode 2026"
-              className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100 outline-none focus:border-emerald-500"
+              className="min-h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
               required
             />
           </label>
@@ -246,7 +286,7 @@ export function ChallengesTab({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Regras e foco do grupo..."
-              className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100 outline-none focus:border-emerald-500"
+              className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
             />
           </label>
 
@@ -256,7 +296,7 @@ export function ChallengesTab({
               <select
                 value={visibility}
                 onChange={(e) => setVisibility(e.target.value as Visibility)}
-                className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                className="min-h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
               >
                 <option value="private">Privado (convite)</option>
                 <option value="public">Aberto (comunidade)</option>
@@ -268,13 +308,19 @@ export function ChallengesTab({
               <select
                 value={scoringMode}
                 onChange={(e) => setScoringMode(e.target.value as ScoringMode)}
-                className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                className="min-h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
               >
                 <option value="points">Modo Pontuação (pesos + teto)</option>
-                <option value="checkin">Modo Check-in (1 ponto/dia)</option>
+                <option value="checkin">Modo Check-in (1 estudo/dia = 1 pt)</option>
               </select>
             </label>
           </div>
+
+          <p className="text-xs text-zinc-400">
+            {scoringMode === "checkin"
+              ? "Modo Check-in: recompensa constância pura (1 check-in válido no dia = +1 ponto, independente da categoria)."
+              : "Modo Pontuação: cada atividade soma pontos pelo peso da categoria até o teto diário anti-farm."}
+          </p>
 
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="flex flex-col gap-1 text-xs text-zinc-300">
@@ -282,25 +328,25 @@ export function ChallengesTab({
               <select
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
-                className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                className="min-h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
               >
-                <option value="America/Sao_Paulo">America/Sao_Paulo</option>
-                <option value="UTC">UTC</option>
-                <option value="America/New_York">America/New_York</option>
-                <option value="Europe/Lisbon">Europe/Lisbon</option>
-                <option value="Europe/London">Europe/London</option>
+                <option value="America/Sao_Paulo">Brasília (GMT-3)</option>
+                <option value="UTC">UTC (GMT+0)</option>
+                <option value="America/New_York">Nova York (EST)</option>
+                <option value="Europe/Lisbon">Lisboa (WET)</option>
+                <option value="Europe/London">Londres (GMT)</option>
               </select>
             </label>
 
             <label className="flex flex-col gap-1 text-xs text-zinc-300">
-              Rest Days / semana
+              Dias de descanso / sem
               <input
                 type="number"
                 min={0}
                 max={7}
                 value={restDaysPerWeek}
                 onChange={(e) => setRestDaysPerWeek(e.target.value)}
-                className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                className="min-h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 tabular-nums"
               />
             </label>
 
@@ -313,69 +359,106 @@ export function ChallengesTab({
                   max={2000}
                   value={dailyPointsCap}
                   onChange={(e) => setDailyPointsCap(e.target.value)}
-                  className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                  className="min-h-11 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 tabular-nums"
                 />
               </label>
             )}
           </div>
 
-          <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950 p-3">
-            <span className="text-xs font-medium text-zinc-300">
-              Categorias Ativas {scoringMode === "points" && "& Pesos"}
-            </span>
-            {catConfigs.map((cfg, idx) => (
-              <div key={cfg.category_slug} className="flex flex-wrap items-center gap-2 text-xs">
-                <label className="flex min-w-40 items-center gap-2 text-zinc-200">
-                  <input
-                    type="checkbox"
-                    checked={cfg.is_enabled}
-                    onChange={(e) => {
-                      const next = [...catConfigs];
-                      next[idx] = { ...cfg, is_enabled: e.target.checked };
-                      setCatConfigs(next);
-                    }}
-                  />
-                  {cfg.label}
-                </label>
-                {scoringMode === "points" && cfg.is_enabled && (
-                  <>
-                    <input
-                      type="number"
-                      min={1}
-                      value={cfg.base_points}
-                      onChange={(e) => {
-                        const next = [...catConfigs];
-                        next[idx] = { ...cfg, base_points: Number(e.target.value) || 1 };
-                        setCatConfigs(next);
-                      }}
-                      className="w-20 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-zinc-100"
-                      title="Pontos base"
-                    />
-                    <span className="text-zinc-500">pts · teto/dia</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={cfg.daily_cap}
-                      onChange={(e) => {
-                        const next = [...catConfigs];
-                        next[idx] = { ...cfg, daily_cap: Number(e.target.value) || 1 };
-                        setCatConfigs(next);
-                      }}
-                      className="w-20 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-zinc-100"
-                      title="Teto diário da categoria"
-                    />
-                  </>
-                )}
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+            <button
+              type="button"
+              aria-expanded={showAdvancedWeights}
+              onClick={() => setShowAdvancedWeights((prev) => !prev)}
+              className="flex min-h-9 w-full items-center justify-between text-xs font-medium text-zinc-200 hover:text-emerald-300"
+            >
+              <span>
+                Personalizar categorias {scoringMode === "points" ? "e pesos" : ""} (opcional)
+              </span>
+              {showAdvancedWeights ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+
+            {showAdvancedWeights && (
+              <div className="mt-3 space-y-3 border-t border-zinc-800 pt-3">
+                {catConfigs.map((cfg, idx) => (
+                  <div
+                    key={cfg.category_slug}
+                    className="flex flex-col gap-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3"
+                  >
+                    <label className="flex min-h-8 items-center gap-2.5 text-xs font-medium text-zinc-100">
+                      <input
+                        type="checkbox"
+                        checked={cfg.is_enabled}
+                        onChange={(e) => {
+                          const next = [...catConfigs];
+                          next[idx] = { ...cfg, is_enabled: e.target.checked };
+                          setCatConfigs(next);
+                        }}
+                        className="h-4 w-4 accent-emerald-500"
+                      />
+                      {cfg.label}
+                    </label>
+                    {scoringMode === "points" && cfg.is_enabled && (
+                      <div className="grid grid-cols-2 gap-3 pl-6">
+                        <label className="flex flex-col gap-1 text-[11px] text-zinc-400">
+                          Pontos base
+                          <input
+                            type="number"
+                            min={1}
+                            value={cfg.base_points}
+                            onChange={(e) => {
+                              const next = [...catConfigs];
+                              next[idx] = {
+                                ...cfg,
+                                base_points: Number(e.target.value) || 1,
+                              };
+                              setCatConfigs(next);
+                            }}
+                            className="min-h-9 rounded border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-100 tabular-nums"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1 text-[11px] text-zinc-400">
+                          Teto diário (pts)
+                          <input
+                            type="number"
+                            min={1}
+                            value={cfg.daily_cap}
+                            onChange={(e) => {
+                              const next = [...catConfigs];
+                              next[idx] = {
+                                ...cfg,
+                                daily_cap: Number(e.target.value) || 1,
+                              };
+                              setCatConfigs(next);
+                            }}
+                            className="min-h-9 rounded border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs text-zinc-100 tabular-nums"
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
 
-          {createError && <p className="text-xs text-red-400">{createError}</p>}
+          {createError && (
+            <p
+              role="alert"
+              className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+            >
+              {createError}
+            </p>
+          )}
 
           <button
             type="submit"
             disabled={creating}
-            className="rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-emerald-400 disabled:opacity-50"
+            className="min-h-11 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-emerald-400 disabled:opacity-50"
           >
             {creating ? "Criando..." : "Criar Desafio"}
           </button>
