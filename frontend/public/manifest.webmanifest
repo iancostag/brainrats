@@ -1,0 +1,16 @@
+{
+  "name": "BrainRats — Estudos de Programação",
+  "short_name": "BrainRats",
+  "description": "Desafios em grupo, constância e diário de estudos para programação.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
