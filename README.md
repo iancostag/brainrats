@@ -11,44 +11,39 @@
 
 ```text
 brainrats/
-├── backend/              # API REST em Python (FastAPI + SQLAlchemy async + Alembic + ARQ)
+├── backend/              # API REST em Python (FastAPI + SQLAlchemy async + SQLite/PostgreSQL)
 ├── frontend/             # Web App / PWA em Next.js (App Router + TypeScript + Tailwind)
 ├── docs/                 # Requisitos, DER, arquitetura e contratos da API
 └── docker-compose.yml    # PostgreSQL 16 + Redis 7 + Backend + Worker + Frontend
 ```
 
-## Rodando com Docker
+## Rodando Localmente (Mais Rápido — Sem Docker)
 
-```bash
-docker compose up --build
-```
+Por padrão, o backend inicia usando **SQLite local** (`backend/brainrats.db`) com seed automático das 5 categorias e 2 desafios públicos iniciais.
 
-- Frontend: `http://localhost:3000`
-- Backend API / Swagger: `http://localhost:8000/docs`
-
-## Rodando Localmente (Sem Docker)
-
-### Backend (FastAPI)
+### 1. Backend (FastAPI)
 
 ```bash
 cd backend
-cp .env.example .env
 uv sync
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-Testes do backend:
+- Swagger/OpenAPI: `http://localhost:8000/docs`
+- Testes do backend: `uv run pytest -v`
 
-```bash
-cd backend
-uv run pytest
-```
-
-### Frontend (Next.js)
+### 2. Frontend (Next.js)
 
 ```bash
 cd frontend
-cp .env.example .env.local
-npm install
-npm run dev
+npm.cmd install
+npm.cmd run dev
+```
+
+- Aplicação Web: `http://localhost:3000`
+
+## Rodando com Docker (PostgreSQL + Redis + Worker)
+
+```bash
+docker compose up --build
 ```

@@ -25,6 +25,11 @@ next-env.d.ts
 .env.*.local
 !.env.example
 
+# Local SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
 # OS / IDE
 .DS_Store
 Thumbs.db

@@ -11,10 +11,10 @@ class Settings(BaseSettings):
     environment: Literal["development", "staging", "production"] = "development"
     debug: bool = True
 
-    database_url: str = "postgresql+asyncpg://brainrats:brainrats_dev_password@localhost:5432/brainrats"
+    database_url: str = "sqlite+aiosqlite:///./brainrats.db"
     redis_url: str = "redis://localhost:6379/0"
 
-    jwt_secret_key: str = "dev-secret-change-me"
+    jwt_secret_key: str = "brainrats-dev-secret-key-at-least-32-bytes"
     github_client_id: str = ""
     github_client_secret: str = ""
     token_encryption_key: str = ""
