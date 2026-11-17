@@ -361,3 +361,74 @@ def test_password_auth_diary_dates_and_feed_cursor(mvp_client: TestClient) -> No
         headers=headers,
     ).json()
     assert filtered_diary["total_entries"] == 2
+
+
+def test_sync_allows_same_external_event_across_different_challenges(
+    mvp_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    login = mvp_client.post(
+        "/api/v1/auth/login",
+        json={
+            "username": "multi_ch_sync",
+            "leetcode_username": "multi_ch_lc",
+        },
+    )
+    assert login.status_code == 200
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    challenges = mvp_client.get("/api/v1/challenges", headers=headers).json()
+    ch1_id = challenges[0]["id"]
+
+    ch2_resp = mvp_client.post(
+        "/api/v1/challenges",
+        headers=headers,
+        json={
+            "title": "Segundo Desafio LeetCode",
+            "description": "Outro desafio ativo",
+            "scoring_mode": "checkin",
+            "daily_points_cap": 100,
+        },
+    )
+    assert ch2_resp.status_code == 201
+    ch2_id = ch2_resp.json()["id"]
+
+    now = datetime.now(UTC)
+
+    async def fake_lc(_username: str) -> list[dict]:
+        return [
+            {
+                "id": "lc-shared-1",
+                "title": "Big Countries",
+                "titleSlug": "big-countries",
+                "timestamp": str(int(now.timestamp())),
+            },
+        ]
+
+    monkeypatch.setattr(integrations_router, "_fetch_leetcode_submissions", fake_lc)
+
+    # First challenge sync imports the submission
+    sync1 = mvp_client.post(
+        "/api/v1/integrations/sync",
+        headers=headers,
+        json={"simulate": False, "challenge_id": ch1_id},
+    )
+    assert sync1.status_code == 200
+    assert sync1.json()["created_count"] == 1
+
+    # Second challenge sync also imports the same submission
+    sync2 = mvp_client.post(
+        "/api/v1/integrations/sync",
+        headers=headers,
+        json={"simulate": False, "challenge_id": ch2_id},
+    )
+    assert sync2.status_code == 200
+    assert sync2.json()["created_count"] == 1
+
+    # Re-syncing the second challenge deduplicates within that challenge
+    sync2_again = mvp_client.post(
+        "/api/v1/integrations/sync",
+        headers=headers,
+        json={"simulate": False, "challenge_id": ch2_id},
+    )
+    assert sync2_again.status_code == 200
+    assert sync2_again.json()["created_count"] == 0

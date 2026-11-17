@@ -59,6 +59,7 @@ async def publish_checkin(
     if external_event_id is not None:
         existing_id = await db.scalar(
             select(CheckIn.id).where(
+                CheckIn.challenge_id == challenge.id,
                 CheckIn.user_id == user_id,
                 CheckIn.source == source,
                 CheckIn.external_event_id == external_event_id,

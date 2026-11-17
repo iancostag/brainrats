@@ -23,6 +23,7 @@ class CheckIn(Base):
     __tablename__ = "checkins"
     __table_args__ = (
         UniqueConstraint(
+            "challenge_id",
             "user_id",
             "source",
             "external_event_id",

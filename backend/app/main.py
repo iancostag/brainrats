@@ -12,8 +12,20 @@ from app.core.seed import seed_initial_data
 from app.models import *  # noqa: F401, F403
 
 
+async def _sqlite_needs_checkin_uq_migration(conn) -> bool:
+    indexes = (await conn.execute(text("PRAGMA index_list(checkins)"))).fetchall()
+    for idx in indexes:
+        if not idx[2]:  # not unique
+            continue
+        cols = (await conn.execute(text(f"PRAGMA index_info('{idx[1]}')"))).fetchall()
+        col_names = {row[2] for row in cols}
+        if col_names == {"user_id", "source", "external_event_id"}:
+            return True
+    return False
+
+
 async def _ensure_sqlite_migrations() -> None:
-    """Add new nullable columns to existing local SQLite DB files without losing data."""
+    """Add new nullable columns and update constraints on existing local SQLite DB files."""
     if not settings.database_url.startswith("sqlite"):
         return
     async with engine.begin() as conn:
@@ -22,6 +34,49 @@ async def _ensure_sqlite_migrations() -> None:
         if "password_hash" not in col_names:
             await conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
 
+        if await _sqlite_needs_checkin_uq_migration(conn):
+            await conn.execute(text("PRAGMA foreign_keys=OFF"))
+            await conn.execute(text("DROP INDEX IF EXISTS ix_checkins_challenge_feed"))
+            await conn.execute(text("DROP INDEX IF EXISTS ix_checkins_daily_points"))
+            await conn.execute(text("ALTER TABLE checkins RENAME TO checkins_old"))
+            await conn.run_sync(
+                lambda sync_conn: Base.metadata.tables["checkins"].create(sync_conn)
+            )
+            await conn.execute(text("INSERT INTO checkins SELECT * FROM checkins_old"))
+            await conn.execute(text("DROP TABLE checkins_old"))
+            await conn.execute(text("PRAGMA foreign_keys=ON"))
+
+
+async def _ensure_postgres_migrations() -> None:
+    """Update legacy unique constraint on checkins to scope deduplication by challenge."""
+    if not settings.database_url.startswith("postgresql"):
+        return
+    async with engine.begin() as conn:
+        cols = (
+            await conn.execute(
+                text(
+                    "SELECT kcu.column_name "
+                    "FROM information_schema.table_constraints tc "
+                    "JOIN information_schema.key_column_usage kcu "
+                    "ON tc.constraint_name = kcu.constraint_name "
+                    "AND tc.table_schema = kcu.table_schema "
+                    "WHERE tc.table_name = 'checkins' "
+                    "AND tc.constraint_name = 'uq_checkins_external_event'"
+                )
+            )
+        ).fetchall()
+        col_names = {row[0] for row in cols}
+        if col_names and "challenge_id" not in col_names:
+            await conn.execute(
+                text("ALTER TABLE checkins DROP CONSTRAINT IF EXISTS uq_checkins_external_event")
+            )
+            await conn.execute(
+                text(
+                    "ALTER TABLE checkins ADD CONSTRAINT uq_checkins_external_event "
+                    "UNIQUE (challenge_id, user_id, source, external_event_id)"
+                )
+            )
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -29,6 +84,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await _ensure_sqlite_migrations()
+    await _ensure_postgres_migrations()
     async with AsyncSessionLocal() as session:
         await seed_initial_data(session)
     yield
