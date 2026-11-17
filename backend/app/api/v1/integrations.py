@@ -1,6 +1,6 @@
 import secrets
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,6 +15,7 @@ from app.models.checkin import CheckIn
 from app.models.user import User, UserIntegration
 from app.schemas.checkin import SyncRequest, SyncResponse
 from app.services.checkins import hydrate_checkins, publish_checkin
+from app.services.scoring import compute_study_date
 
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
@@ -65,6 +66,39 @@ async def _resolve_target_challenge(
     )
 
 
+def _parse_github_timestamp(raw: str | None) -> datetime | None:
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _parse_leetcode_timestamp(raw: str | int | None) -> datetime | None:
+    if raw is None or raw == "":
+        return None
+    try:
+        return datetime.fromtimestamp(int(raw), tz=UTC)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_within_today_and_challenge(
+    occurred_at: datetime | None, challenge: Challenge, today: date
+) -> bool:
+    if occurred_at is None:
+        return False
+    event_date = compute_study_date(occurred_at, challenge.timezone)
+    if event_date != today:
+        return False
+    if event_date < challenge.start_date:
+        return False
+    if challenge.end_date is not None and event_date > challenge.end_date:
+        return False
+    return True
+
+
 async def _fetch_github_push_commits(github_username: str) -> list[dict]:
     commits: list[dict] = []
     async with httpx.AsyncClient(timeout=6.0) as client:
@@ -93,9 +127,9 @@ async def _fetch_github_push_commits(github_username: str) -> list[dict]:
                             "created_at": created_at,
                         }
                     )
-            if len(commits) >= 5:
+            if len(commits) >= 15:
                 break
-    return commits[:5]
+    return commits[:15]
 
 
 async def _fetch_leetcode_submissions(leetcode_username: str) -> list[dict]:
@@ -104,7 +138,7 @@ async def _fetch_leetcode_submissions(leetcode_username: str) -> list[dict]:
             LEETCODE_GRAPHQL_URL,
             json={
                 "query": LEETCODE_RECENT_AC_QUERY,
-                "variables": {"username": leetcode_username, "limit": 5},
+                "variables": {"username": leetcode_username, "limit": 15},
             },
             headers={"Content-Type": "application/json"},
         )
@@ -179,9 +213,17 @@ async def sync_integrations(
             target = await _resolve_target_challenge(
                 db, current_user.id, payload.challenge_id or gh_integration.target_challenge_id
             )
+            today_in_tz = compute_study_date(datetime.now(UTC), target.timezone)
             try:
                 commits = await _fetch_github_push_commits(gh_integration.external_username)
+                skipped_old = 0
+                today_matches = 0
                 for item in commits:
+                    occurred_at = _parse_github_timestamp(item.get("created_at"))
+                    if not _is_within_today_and_challenge(occurred_at, target, today_in_tz):
+                        skipped_old += 1
+                        continue
+                    today_matches += 1
                     row = await publish_checkin(
                         db,
                         challenge=target,
@@ -193,6 +235,7 @@ async def sync_integrations(
                         external_event_id=item["sha"],
                         metadata_json={"repository": item["repo"], "commits_count": 1},
                         evidence_url=item["url"],
+                        occurred_at=occurred_at,
                     )
                     if row is None:
                         skipped += 1
@@ -200,7 +243,10 @@ async def sync_integrations(
                         created_rows.append(row)
                 gh_integration.last_synced_at = datetime.now(UTC)
                 gh_name = gh_integration.external_username
-                details.append(f"GitHub ({gh_name}): {len(commits)} commits analisados.")
+                details.append(
+                    f"GitHub ({gh_name}): {today_matches} commit(s) de hoje "
+                    f"({skipped_old} de dias anteriores ignorado(s))."
+                )
             except Exception:
                 details.append("GitHub: não foi possível consultar eventos públicos no momento.")
 
@@ -208,9 +254,17 @@ async def sync_integrations(
             target = await _resolve_target_challenge(
                 db, current_user.id, payload.challenge_id or lc_integration.target_challenge_id
             )
+            today_in_tz = compute_study_date(datetime.now(UTC), target.timezone)
             try:
                 submissions = await _fetch_leetcode_submissions(lc_integration.external_username)
+                skipped_old = 0
+                today_matches = 0
                 for sub in submissions:
+                    occurred_at = _parse_leetcode_timestamp(sub.get("timestamp"))
+                    if not _is_within_today_and_challenge(occurred_at, target, today_in_tz):
+                        skipped_old += 1
+                        continue
+                    today_matches += 1
                     sub_id = str(sub.get("id") or sub.get("timestamp") or "")
                     title = str(sub.get("title") or "Problema LeetCode")
                     slug = str(sub.get("titleSlug") or "")
@@ -227,6 +281,7 @@ async def sync_integrations(
                         external_event_id=sub_id,
                         metadata_json={"difficulty": "Medium", "problem_slug": slug},
                         evidence_url=f"https://leetcode.com/problems/{slug}/" if slug else None,
+                        occurred_at=occurred_at,
                     )
                     if row is None:
                         skipped += 1
@@ -235,7 +290,8 @@ async def sync_integrations(
                 lc_integration.last_synced_at = datetime.now(UTC)
                 lc_name = lc_integration.external_username
                 details.append(
-                    f"LeetCode ({lc_name}): {len(submissions)} submissões analisadas."
+                    f"LeetCode ({lc_name}): {today_matches} submissão(ões) de hoje "
+                    f"({skipped_old} de dias anteriores ignorada(s))."
                 )
             except Exception:
                 details.append("LeetCode: não foi possível consultar submissões no momento.")

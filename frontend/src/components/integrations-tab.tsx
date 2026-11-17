@@ -46,10 +46,12 @@ export function IntegrationsTab({
   );
 
   const [saving, setSaving] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [syncMode, setSyncMode] = useState<"real" | "simulate" | null>(null);
   const [syncResult, setSyncResult] = useState<SyncResponse | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const syncing = syncMode !== null;
 
   async function persistSettings() {
     const updated = await updateProfile({
@@ -80,7 +82,7 @@ export function IntegrationsTab({
   async function handleSync(simulate: boolean) {
     setError(null);
     setMessage(null);
-    setSyncing(true);
+    setSyncMode(simulate ? "simulate" : "real");
     try {
       if (!simulate) {
         await persistSettings();
@@ -94,7 +96,7 @@ export function IntegrationsTab({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Falha na sincronização.");
     } finally {
-      setSyncing(false);
+      setSyncMode(null);
     }
   }
 
@@ -210,18 +212,18 @@ export function IntegrationsTab({
             onClick={() => void handleSync(false)}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#D94E28] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#C2411E] disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-            Sincronizar GitHub & LeetCode Agora
+            <RefreshCw className={`h-4 w-4 ${syncMode === "real" ? "animate-spin" : ""}`} />
+            {syncMode === "real" ? "Sincronizando..." : "Sincronizar GitHub & LeetCode Agora"}
           </button>
 
           <button
             type="button"
             disabled={syncing}
             onClick={() => void handleSync(true)}
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-4 py-2.5 text-sm font-semibold text-[#0F1722] hover:border-[#0F1722]"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-4 py-2.5 text-sm font-semibold text-[#0F1722] hover:border-[#0F1722] disabled:opacity-50"
           >
             <Sparkles className="h-4 w-4 text-[#D94E28]" />
-            Simular Check-in Automático
+            {syncMode === "simulate" ? "Simulando..." : "Simular Check-in Automático"}
           </button>
         </div>
 

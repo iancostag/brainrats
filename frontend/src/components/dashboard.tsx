@@ -369,7 +369,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 md:pb-10 md:pt-8">
+      <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 md:pb-10 md:pt-8">
         {challengesError && (
           <div
             role="alert"
@@ -628,7 +628,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
               <p className="text-sm text-[#475569]">Carregando desafio...</p>
             ) : detail ? (
               <div className="grid gap-6 lg:grid-cols-3">
-                <div className="flex flex-col gap-6 lg:col-span-2">
+                <div className="order-2 flex flex-col gap-6 lg:order-1 lg:col-span-2">
                   {detail.challenge.is_member ? (
                     <CheckinForm
                       challengeId={detail.challenge.id}
@@ -744,8 +744,8 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                   </section>
                 </div>
 
-                {/* Official Timing Board (Placar Oficial) in deep cinder-slate */}
-                <aside className="flex flex-col gap-4">
+                {/* Official Timing Board (Placar Oficial) — first on mobile, right column on desktop */}
+                <aside className="order-1 flex flex-col gap-4 lg:order-2">
                   <div className="rounded-xl bg-[#0F1722] p-5 text-white shadow-sm">
                     <h3 className="flex items-center justify-between gap-2 text-sm font-bold uppercase tracking-wider text-slate-300">
                       <span className="flex items-center gap-2">
@@ -841,7 +841,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
       <nav
         role="tablist"
         aria-label="Navegação móvel"
-        className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-4 border-t border-slate-800 bg-[#0F1722] text-white md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-30 grid grid-cols-4 border-t border-slate-800 bg-[#0F1722] pb-[env(safe-area-inset-bottom)] text-white md:hidden"
       >
         {navItems.map((item) => {
           const Icon = item.icon;

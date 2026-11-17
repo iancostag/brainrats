@@ -124,7 +124,7 @@ export function CheckinForm({
           <PlusCircle className="h-4 w-4 text-[#D94E28]" />
           Registrar Estudo
         </h3>
-        <span className="text-xs text-[#475569]">
+        <span className="hidden text-xs text-[#475569] sm:inline">
           Atalho:{" "}
           <kbd className="rounded border border-[#DDD8CE] bg-[#FAF9F6] px-1.5 py-0.5 font-mono text-[11px] text-[#0F1722]">
             Ctrl+Enter

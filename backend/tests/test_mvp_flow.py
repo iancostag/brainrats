@@ -1,9 +1,11 @@
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.api.v1 import integrations as integrations_router
 from app.core.database import Base, get_db
 from app.core.seed import seed_initial_data
 from app.main import create_app
@@ -218,3 +220,69 @@ def test_mvp_end_to_end_flow(mvp_client: TestClient) -> None:
     )
     assert edit_resp.status_code == 200
     assert edit_resp.json()["title"] == "Implementei auth JWT"
+
+
+def test_sync_ignores_previous_days_events(
+    mvp_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    login = mvp_client.post(
+        "/api/v1/auth/login",
+        json={
+            "username": "sync_tester",
+            "github_username": "sync_tester_gh",
+            "leetcode_username": "sync_tester_lc",
+        },
+    )
+    assert login.status_code == 200
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    now = datetime.now(UTC)
+    yesterday = now - timedelta(days=1)
+
+    async def fake_gh(_username: str) -> list[dict]:
+        return [
+            {
+                "sha": "sha-today",
+                "title": "[repo] Commit de hoje",
+                "repo": "sync/repo",
+                "url": "https://github.com/sync/repo/commit/sha-today",
+                "created_at": now.isoformat(),
+            },
+            {
+                "sha": "sha-yesterday",
+                "title": "[repo] Commit antigo",
+                "repo": "sync/repo",
+                "url": "https://github.com/sync/repo/commit/sha-yesterday",
+                "created_at": yesterday.isoformat(),
+            },
+        ]
+
+    async def fake_lc(_username: str) -> list[dict]:
+        return [
+            {
+                "id": "lc-today",
+                "title": "Valid Anagram",
+                "titleSlug": "valid-anagram",
+                "timestamp": str(int(now.timestamp())),
+            },
+            {
+                "id": "lc-yesterday",
+                "title": "Create a DataFrame from List",
+                "titleSlug": "create-a-dataframe-from-list",
+                "timestamp": str(int(yesterday.timestamp())),
+            },
+        ]
+
+    monkeypatch.setattr(integrations_router, "_fetch_github_push_commits", fake_gh)
+    monkeypatch.setattr(integrations_router, "_fetch_leetcode_submissions", fake_lc)
+
+    sync_resp = mvp_client.post(
+        "/api/v1/integrations/sync",
+        headers=headers,
+        json={"simulate": False},
+    )
+    assert sync_resp.status_code == 200
+    payload = sync_resp.json()
+    assert payload["created_count"] == 2
+    titles = {item["title"] for item in payload["created_checkins"]}
+    assert titles == {"[repo] Commit de hoje", "Valid Anagram"}

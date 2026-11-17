@@ -24,13 +24,17 @@ export const metadata: Metadata = {
     "Desafios em grupo para LeetCode, projetos, livros técnicos, Engenharia de Software e Dados.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/logo-icon.jpg",
-    apple: "/logo-icon.jpg",
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icon-192.png", sizes: "192x192", type: "image/png" }],
   },
 };
 
 export const viewport: Viewport = {
   themeColor: "#0F1722",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

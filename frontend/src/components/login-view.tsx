@@ -76,9 +76,9 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
         <section className="flex flex-1 flex-col gap-5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo-wordmark.jpg"
+            src="/logo-wordmark.png"
             alt="BrainRats"
-            className="h-12 w-auto self-start object-contain mix-blend-multiply sm:h-14"
+            className="h-12 w-auto self-start object-contain sm:h-14"
           />
 
           <h1 className="max-w-xl text-3xl font-extrabold tracking-tight text-[#0F1722] sm:text-5xl sm:leading-[1.08]">
