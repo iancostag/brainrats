@@ -30,6 +30,16 @@ class Settings(BaseSettings):
     )
 
     @property
+    def resolved_database_url(self) -> str:
+        """Normalize Postgres connection URLs to use the asyncpg driver."""
+        url = self.database_url.strip()
+        if url.startswith("postgres://"):
+            return url.replace("postgres://", "postgresql+asyncpg://", 1)
+        if url.startswith("postgresql://"):
+            return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
+
+    @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
