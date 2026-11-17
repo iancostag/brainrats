@@ -275,9 +275,12 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
       <header className="sticky top-0 z-20 border-b-[3px] border-[#D94E28] bg-[#0F1722] text-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6 md:py-3">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[#D94E28] text-white">
-              <Flame className="h-4 w-4" />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo-brainrats.jpg"
+              alt="Emblema BrainRats"
+              className="h-9 w-9 rounded-full border border-[#D94E28]/70 object-cover"
+            />
             <div>
               <span className="text-sm font-extrabold tracking-tight text-white sm:text-base">
                 BrainRats

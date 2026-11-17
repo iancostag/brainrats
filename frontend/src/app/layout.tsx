@@ -23,6 +23,10 @@ export const metadata: Metadata = {
   description:
     "Desafios em grupo para LeetCode, projetos, livros técnicos, Engenharia de Software e Dados.",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/logo-brainrats.jpg",
+    apple: "/logo-brainrats.jpg",
+  },
 };
 
 export const viewport: Viewport = {

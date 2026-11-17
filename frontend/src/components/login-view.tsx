@@ -1,6 +1,6 @@
 "use client";
 
-import { BookMarked, Code2, Flame, GitBranch, Github, Sparkles } from "lucide-react";
+import { BookMarked, Code2, GitBranch, Github, Sparkles } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { loginUser, setStoredToken, type User } from "@/lib/api";
@@ -57,12 +57,15 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
 
   return (
     <div className="min-h-screen bg-[#F3F1EC]">
-      <header className="border-b-[3px] border-[#D94E28] bg-[#0F1722] px-5 py-3.5 text-white sm:px-8">
+      <header className="border-b-[3px] border-[#D94E28] bg-[#0F1722] px-5 py-3 text-white sm:px-8">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-[#D94E28] text-white">
-              <Flame className="h-4 w-4" />
-            </div>
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo-brainrats.jpg"
+              alt="Emblema BrainRats"
+              className="h-9 w-9 rounded-full border border-[#D94E28]/70 object-cover"
+            />
             <span className="text-lg font-extrabold tracking-tight">BrainRats</span>
           </div>
           <span className="font-mono text-xs text-slate-300">PT-BR · WEB / PWA</span>
