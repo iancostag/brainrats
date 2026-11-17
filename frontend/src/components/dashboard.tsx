@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { AutoSyncGroupCard } from "@/components/auto-sync-group-card";
 import { ChallengesTab } from "@/components/challenges-tab";
 import { CheckinCard } from "@/components/checkin-card";
 import { CheckinForm } from "@/components/checkin-form";
@@ -261,6 +262,42 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
     return feed.filter((c) => c.category_slug === feedFilter);
   }, [feed, feedFilter]);
 
+  // Group auto-synced check-ins (GitHub / LeetCode) by (user_id, source, study_date)
+  // when there are 2+ items so bulk syncs don't flood the feed.
+  const groupedFeedEntries = useMemo(() => {
+    const autoBuckets = new Map<string, CheckIn[]>();
+    for (const item of filteredFeed) {
+      if (item.source === "github" || item.source === "leetcode") {
+        const key = `${item.user_id}:${item.source}:${item.study_date}`;
+        const bucket = autoBuckets.get(key) ?? [];
+        bucket.push(item);
+        autoBuckets.set(key, bucket);
+      }
+    }
+
+    const emittedKeys = new Set<string>();
+    const entries: Array<
+      | { type: "single"; checkin: CheckIn }
+      | { type: "group"; key: string; items: CheckIn[] }
+    > = [];
+
+    for (const item of filteredFeed) {
+      if (item.source === "github" || item.source === "leetcode") {
+        const key = `${item.user_id}:${item.source}:${item.study_date}`;
+        const bucket = autoBuckets.get(key) ?? [];
+        if (bucket.length >= 2) {
+          if (!emittedKeys.has(key)) {
+            emittedKeys.add(key);
+            entries.push({ type: "group", key, items: bucket });
+          }
+          continue;
+        }
+      }
+      entries.push({ type: "single", checkin: item });
+    }
+    return entries;
+  }, [filteredFeed]);
+
   const navItems: Array<{ id: TabId; label: string; shortLabel: string; icon: typeof Flame }> = [
     { id: "active", label: "Desafio Ativo", shortLabel: "Desafio", icon: Flame },
     { id: "explore", label: "Explorar & Criar", shortLabel: "Explorar", icon: Compass },
@@ -277,9 +314,9 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo-brainrats.jpg"
-              alt="Emblema BrainRats"
-              className="h-9 w-9 rounded-full border border-[#D94E28]/70 object-cover"
+              src="/logo-icon.jpg"
+              alt="Ícone BrainRats"
+              className="h-9 w-9 rounded-lg border border-slate-700 object-cover"
             />
             <div>
               <span className="text-sm font-extrabold tracking-tight text-white sm:text-base">
@@ -675,22 +712,34 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                       </div>
                     </div>
 
-                    {filteredFeed.length === 0 ? (
+                    {groupedFeedEntries.length === 0 ? (
                       <div className="rounded-xl border border-dashed border-[#C7C0B3] bg-white/60 p-8 text-center text-sm text-[#475569]">
                         Nenhum check-in encontrado para este filtro.
                       </div>
                     ) : (
-                      filteredFeed.map((item) => (
-                        <CheckinCard
-                          key={item.id}
-                          checkin={item}
-                          currentUserId={user.id}
-                          isChallengeAdmin={isAdmin}
-                          isMember={detail.challenge.is_member}
-                          scoringMode={detail.challenge.scoring_mode}
-                          onUpdated={handleCheckinUpdated}
-                        />
-                      ))
+                      groupedFeedEntries.map((entry) =>
+                        entry.type === "group" ? (
+                          <AutoSyncGroupCard
+                            key={entry.key}
+                            items={entry.items}
+                            currentUserId={user.id}
+                            isChallengeAdmin={isAdmin}
+                            isMember={detail.challenge.is_member}
+                            scoringMode={detail.challenge.scoring_mode}
+                            onUpdated={handleCheckinUpdated}
+                          />
+                        ) : (
+                          <CheckinCard
+                            key={entry.checkin.id}
+                            checkin={entry.checkin}
+                            currentUserId={user.id}
+                            isChallengeAdmin={isAdmin}
+                            isMember={detail.challenge.is_member}
+                            scoringMode={detail.challenge.scoring_mode}
+                            onUpdated={handleCheckinUpdated}
+                          />
+                        ),
+                      )
                     )}
                   </section>
                 </div>

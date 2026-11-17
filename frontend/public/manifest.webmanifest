@@ -8,7 +8,12 @@
   "theme_color": "#0F1722",
   "icons": [
     {
-      "src": "/logo-brainrats.jpg",
+      "src": "/logo-icon.jpg",
+      "sizes": "1024x1024",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/logo-emblem.jpg",
       "sizes": "1024x1024",
       "type": "image/jpeg"
     },

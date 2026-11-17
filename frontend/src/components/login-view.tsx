@@ -62,9 +62,9 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logo-brainrats.jpg"
-              alt="Emblema BrainRats"
-              className="h-9 w-9 rounded-full border border-[#D94E28]/70 object-cover"
+              src="/logo-icon.jpg"
+              alt="Ícone BrainRats"
+              className="h-9 w-9 rounded-lg border border-slate-700 object-cover"
             />
             <span className="text-lg font-extrabold tracking-tight">BrainRats</span>
           </div>
@@ -74,6 +74,13 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
 
       <main className="mx-auto flex min-h-[calc(100vh-64px)] max-w-5xl flex-col justify-center gap-10 px-5 py-10 sm:px-8 md:flex-row md:items-center md:gap-10 lg:gap-14">
         <section className="flex flex-1 flex-col gap-5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-wordmark.jpg"
+            alt="BrainRats"
+            className="h-12 w-auto self-start object-contain mix-blend-multiply sm:h-14"
+          />
+
           <h1 className="max-w-xl text-3xl font-extrabold tracking-tight text-[#0F1722] sm:text-5xl sm:leading-[1.08]">
             Constância em grupo para estudos de programação.
           </h1>
@@ -113,10 +120,20 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
         </section>
 
         <section className="w-full max-w-md rounded-xl border border-[#DDD8CE] bg-white p-6 shadow-sm">
-          <h2 className="text-xl font-bold text-[#0F1722]">Entrar ou criar conta</h2>
-          <p className="mt-1 text-sm text-[#475569]">
-            Escolha seu identificador único para acessar desafios e histórico.
-          </p>
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo-emblem.jpg"
+              alt="Emblema BrainRats"
+              className="h-12 w-12 shrink-0 rounded-full border border-[#DDD8CE] object-cover"
+            />
+            <div>
+              <h2 className="text-xl font-bold text-[#0F1722]">Entrar ou criar conta</h2>
+              <p className="text-xs text-[#475569]">
+                Escolha seu identificador único para acessar desafios e histórico.
+              </p>
+            </div>
+          </div>
 
           {sessionNotice && (
             <div
