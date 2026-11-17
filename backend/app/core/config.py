@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     github_client_id: str = ""
     github_client_secret: str = ""
     token_encryption_key: str = ""
+    frontend_url: str = "http://localhost:3000"
+    allow_dev_login: bool = True
 
     cors_origins: str = "http://localhost:3000"
 

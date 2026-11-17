@@ -114,11 +114,12 @@ async def create_checkin(
 async def get_challenge_feed(
     challenge_id: uuid.UUID,
     include_invalidated: bool = Query(default=True),
-    limit: int = Query(default=50, ge=1, le=100),
+    before: datetime | None = Query(default=None),
+    limit: int = Query(default=30, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[CheckInOut]:
-    """List check-ins for a challenge feed, with reactions, comments, and admin reports."""
+    """List check-ins for a challenge feed, with cursor pagination (`before`)."""
     challenge, membership = await _get_challenge_and_membership(db, challenge_id, current_user.id)
     if challenge.visibility == "private" and membership is None:
         raise HTTPException(
@@ -134,6 +135,8 @@ async def get_challenge_feed(
     )
     if not include_invalidated:
         query = query.where(CheckIn.status == "valid")
+    if before is not None:
+        query = query.where(CheckIn.created_at < before)
 
     checkins = (await db.scalars(query)).all()
     is_admin = membership is not None and (

@@ -10,6 +10,7 @@ import {
   clearStoredToken,
   fetchMe,
   getStoredToken,
+  setStoredToken,
   type User,
 } from "@/lib/api";
 
@@ -20,6 +21,19 @@ export default function HomePage() {
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
 
   const validateSession = useCallback(async () => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const oauthToken = params.get("token");
+      const oauthError = params.get("oauth_error");
+      if (oauthToken) {
+        setStoredToken(oauthToken);
+        window.history.replaceState({}, "", window.location.pathname);
+      } else if (oauthError) {
+        setSessionNotice("Não foi possível concluir o login com GitHub. Tente novamente.");
+        window.history.replaceState({}, "", window.location.pathname);
+      }
+    }
+
     const token = getStoredToken();
     if (!token) {
       setCheckingSession(false);

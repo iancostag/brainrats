@@ -8,11 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import decrypt_secret, get_current_user
 from app.core.seed import ensure_default_categories
 from app.models.challenge import Challenge, ChallengeMember
 from app.models.checkin import CheckIn
-from app.models.user import User, UserIntegration
+from app.models.user import MonitoredRepository, User, UserIntegration
+from app.schemas.auth import GitHubRepoItem, MonitoredReposUpdateRequest
 from app.schemas.checkin import SyncRequest, SyncResponse
 from app.services.checkins import hydrate_checkins, publish_checkin
 from app.services.scoring import compute_study_date
@@ -132,6 +133,43 @@ async def _fetch_github_push_commits(github_username: str) -> list[dict]:
     return commits[:15]
 
 
+async def _fetch_repo_commits_with_token(
+    full_name: str,
+    author: str,
+    access_token: str,
+    since_iso: str,
+) -> list[dict]:
+    commits: list[dict] = []
+    async with httpx.AsyncClient(timeout=6.0) as client:
+        resp = await client.get(
+            f"https://api.github.com/repos/{full_name}/commits",
+            params={"author": author, "since": since_iso, "per_page": 15},
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/vnd.github+json",
+            },
+        )
+        if resp.status_code != 200:
+            return commits
+        for item in resp.json():
+            sha = item.get("sha")
+            commit_obj = item.get("commit") or {}
+            message = (commit_obj.get("message") or "").splitlines()[0].strip()
+            author_date = (commit_obj.get("author") or {}).get("date")
+            html_url = item.get("html_url")
+            if sha and message:
+                commits.append(
+                    {
+                        "sha": sha,
+                        "title": f"[{full_name}] {message}"[:190],
+                        "repo": full_name,
+                        "url": html_url or f"https://github.com/{full_name}/commit/{sha}",
+                        "created_at": author_date,
+                    }
+                )
+    return commits
+
+
 async def _fetch_leetcode_submissions(leetcode_username: str) -> list[dict]:
     async with httpx.AsyncClient(timeout=6.0) as client:
         resp = await client.post(
@@ -146,6 +184,121 @@ async def _fetch_leetcode_submissions(leetcode_username: str) -> list[dict]:
             return []
         data = resp.json().get("data") or {}
         return data.get("recentAcSubmissionList") or []
+
+
+@router.get("/github/repos", response_model=list[GitHubRepoItem])
+async def list_github_repositories(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[GitHubRepoItem]:
+    """List the user's GitHub repositories (including private) using OAuth token."""
+    gh_integration = await db.scalar(
+        select(UserIntegration).where(
+            UserIntegration.user_id == current_user.id,
+            UserIntegration.provider == "github",
+        )
+    )
+    if gh_integration is None or not gh_integration.access_token_encrypted:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Conecte sua conta via GitHub OAuth para listar seus repositórios.",
+        )
+
+    token = decrypt_secret(gh_integration.access_token_encrypted)
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token do GitHub inválido. Entre novamente com GitHub OAuth.",
+        )
+
+    async with httpx.AsyncClient(timeout=8.0) as client:
+        resp = await client.get(
+            "https://api.github.com/user/repos",
+            params={"sort": "updated", "per_page": 30, "affiliation": "owner,collaborator"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+            },
+        )
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Não foi possível carregar os repositórios do GitHub.",
+        )
+
+    monitored = (
+        await db.scalars(
+            select(MonitoredRepository).where(
+                MonitoredRepository.user_id == current_user.id,
+                MonitoredRepository.is_active.is_(True),
+            )
+        )
+    ).all()
+    monitored_ids = {m.github_repo_id for m in monitored}
+
+    return [
+        GitHubRepoItem(
+            github_repo_id=int(repo["id"]),
+            full_name=str(repo["full_name"]),
+            default_branch=str(repo.get("default_branch") or "main"),
+            private=bool(repo.get("private", False)),
+            is_monitored=int(repo["id"]) in monitored_ids,
+        )
+        for repo in resp.json()
+    ]
+
+
+@router.put("/github/repos", response_model=list[GitHubRepoItem])
+async def update_monitored_repositories(
+    payload: MonitoredReposUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[GitHubRepoItem]:
+    """Save which GitHub repositories should be monitored for automatic project check-ins."""
+    existing_rows = (
+        await db.scalars(
+            select(MonitoredRepository).where(MonitoredRepository.user_id == current_user.id)
+        )
+    ).all()
+    by_repo_id = {row.github_repo_id: row for row in existing_rows}
+    selected_ids = {r.github_repo_id for r in payload.repos}
+
+    for row in existing_rows:
+        row.is_active = row.github_repo_id in selected_ids
+        if payload.target_challenge_id is not None:
+            row.target_challenge_id = payload.target_challenge_id
+
+    for sel in payload.repos:
+        if sel.github_repo_id in by_repo_id:
+            existing = by_repo_id[sel.github_repo_id]
+            existing.full_name = sel.full_name
+            existing.default_branch = sel.default_branch
+            existing.is_active = True
+            if payload.target_challenge_id is not None:
+                existing.target_challenge_id = payload.target_challenge_id
+        else:
+            db.add(
+                MonitoredRepository(
+                    user_id=current_user.id,
+                    target_challenge_id=payload.target_challenge_id,
+                    github_repo_id=sel.github_repo_id,
+                    full_name=sel.full_name,
+                    default_branch=sel.default_branch,
+                    is_active=True,
+                )
+            )
+
+    await db.commit()
+    return [
+        GitHubRepoItem(
+            github_repo_id=sel.github_repo_id,
+            full_name=sel.full_name,
+            default_branch=sel.default_branch,
+            private=False,
+            is_monitored=True,
+        )
+        for sel in payload.repos
+    ]
 
 
 @router.post("/sync", response_model=SyncResponse)
@@ -214,8 +367,35 @@ async def sync_integrations(
                 db, current_user.id, payload.challenge_id or gh_integration.target_challenge_id
             )
             today_in_tz = compute_study_date(datetime.now(UTC), target.timezone)
+            oauth_token = (
+                decrypt_secret(gh_integration.access_token_encrypted)
+                if gh_integration.access_token_encrypted
+                else None
+            )
+            monitored_repos = (
+                await db.scalars(
+                    select(MonitoredRepository).where(
+                        MonitoredRepository.user_id == current_user.id,
+                        MonitoredRepository.is_active.is_(True),
+                    )
+                )
+            ).all()
+
             try:
-                commits = await _fetch_github_push_commits(gh_integration.external_username)
+                if oauth_token and monitored_repos:
+                    since_iso = f"{today_in_tz.isoformat()}T00:00:00Z"
+                    commits: list[dict] = []
+                    for repo in monitored_repos:
+                        repo_commits = await _fetch_repo_commits_with_token(
+                            repo.full_name,
+                            gh_integration.external_username,
+                            oauth_token,
+                            since_iso,
+                        )
+                        commits.extend(repo_commits)
+                else:
+                    commits = await _fetch_github_push_commits(gh_integration.external_username)
+
                 skipped_old = 0
                 today_matches = 0
                 for item in commits:
@@ -248,7 +428,7 @@ async def sync_integrations(
                     f"({skipped_old} de dias anteriores ignorado(s))."
                 )
             except Exception:
-                details.append("GitHub: não foi possível consultar eventos públicos no momento.")
+                details.append("GitHub: não foi possível consultar commits no momento.")
 
         if lc_integration is not None:
             target = await _resolve_target_challenge(

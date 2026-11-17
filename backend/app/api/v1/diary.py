@@ -1,5 +1,6 @@
 import uuid
 from collections import defaultdict
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import or_, select
@@ -22,6 +23,8 @@ async def search_diary(
     category_slug: str | None = Query(default=None),
     challenge_id: uuid.UUID | None = Query(default=None),
     source: str | None = Query(default=None),
+    date_from: date | None = Query(default=None),
+    date_to: date | None = Query(default=None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> DiaryResponse:
@@ -49,6 +52,12 @@ async def search_diary(
 
     if source:
         query = query.where(CheckIn.source == source)
+
+    if date_from is not None:
+        query = query.where(CheckIn.study_date >= date_from)
+
+    if date_to is not None:
+        query = query.where(CheckIn.study_date <= date_to)
 
     checkins = list((await db.scalars(query.limit(200))).all())
 

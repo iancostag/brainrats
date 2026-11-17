@@ -73,12 +73,30 @@ export function ChallengesTab({
   const [visibility, setVisibility] = useState<Visibility>("private");
   const [scoringMode, setScoringMode] = useState<ScoringMode>("points");
   const [timezone, setTimezone] = useState("America/Sao_Paulo");
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const plus30Iso = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+  const [durationPreset, setDurationPreset] = useState<"30d" | "90d" | "continuous" | "custom">("30d");
+  const [startDate, setStartDate] = useState(todayIso);
+  const [endDate, setEndDate] = useState(plus30Iso);
   const [restDaysPerWeek, setRestDaysPerWeek] = useState("1");
   const [dailyPointsCap, setDailyPointsCap] = useState("100");
   const [showAdvancedWeights, setShowAdvancedWeights] = useState(false);
   const [catConfigs, setCatConfigs] = useState(DEFAULT_CATEGORY_CONFIGS);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  function handlePresetChange(preset: "30d" | "90d" | "continuous" | "custom") {
+    setDurationPreset(preset);
+    if (preset === "continuous") {
+      setEndDate("");
+      return;
+    }
+    if (preset === "30d" || preset === "90d") {
+      const days = preset === "30d" ? 30 : 90;
+      const base = startDate ? new Date(`${startDate}T00:00:00Z`) : new Date();
+      setEndDate(new Date(base.getTime() + days * 86_400_000).toISOString().slice(0, 10));
+    }
+  }
 
   async function handleJoinByCode(event: FormEvent) {
     event.preventDefault();
@@ -137,6 +155,8 @@ export function ChallengesTab({
         visibility,
         scoring_mode: scoringMode,
         timezone,
+        start_date: startDate || undefined,
+        end_date: durationPreset === "continuous" ? null : endDate || null,
         rest_days_per_week: Number(restDaysPerWeek) || 0,
         daily_points_cap: globalCap,
         category_configs: catConfigs.map((c) => ({
@@ -227,6 +247,9 @@ export function ChallengesTab({
                     {ch.scoring_mode === "checkin" ? "Modo Check-in" : "Modo Pontuação"}
                   </span>
                   <span>{formatTimezoneLabel(ch.timezone)}</span>
+                  <span className="font-mono">
+                    {ch.start_date} {ch.end_date ? `→ ${ch.end_date}` : "· Contínuo"}
+                  </span>
                   <span className="inline-flex items-center gap-1 tabular-nums">
                     <Users className="h-3.5 w-3.5" /> {ch.members_count}
                   </span>
@@ -321,6 +344,53 @@ export function ChallengesTab({
               ? "Modo Check-in: recompensa constância pura (1 check-in válido no dia = +1 ponto, independente da categoria)."
               : "Modo Pontuação: cada atividade soma pontos pelo peso da categoria até o teto diário anti-farm."}
           </p>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="flex flex-col gap-1 text-xs font-medium text-[#334155]">
+              Duração
+              <select
+                value={durationPreset}
+                onChange={(e) =>
+                  handlePresetChange(
+                    e.target.value as "30d" | "90d" | "continuous" | "custom",
+                  )
+                }
+                className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
+              >
+                <option value="30d">30 dias</option>
+                <option value="90d">90 dias</option>
+                <option value="continuous">Contínuo (sem fim)</option>
+                <option value="custom">Personalizado</option>
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1 text-xs font-medium text-[#334155]">
+              Início
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setDurationPreset("custom");
+                }}
+                className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722]"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1 text-xs font-medium text-[#334155]">
+              Término
+              <input
+                type="date"
+                value={endDate}
+                disabled={durationPreset === "continuous"}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setDurationPreset("custom");
+                }}
+                className="min-h-11 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-2 text-sm text-[#0F1722] disabled:opacity-50"
+              />
+            </label>
+          </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="flex flex-col gap-1 text-xs font-medium text-[#334155]">

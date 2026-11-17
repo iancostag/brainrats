@@ -3,17 +3,28 @@
 import { BookMarked, RefreshCw, Search, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { fetchDiary, type DiaryResponse } from "@/lib/api";
+import {
+  fetchDiary,
+  type ChallengeListItem,
+  type DiaryResponse,
+} from "@/lib/api";
 import {
   CATEGORY_LIST,
   CATEGORY_META,
   formatMetadataChips,
 } from "@/lib/categories";
 
-export function DiaryTab() {
+interface DiaryTabProps {
+  challenges: ChallengeListItem[];
+}
+
+export function DiaryTab({ challenges }: DiaryTabProps) {
   const [query, setQuery] = useState("");
   const [categorySlug, setCategorySlug] = useState("");
+  const [challengeId, setChallengeId] = useState("");
   const [source, setSource] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [diary, setDiary] = useState<DiaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +36,10 @@ export function DiaryTab() {
       const res = await fetchDiary({
         q: query.trim() || undefined,
         category_slug: categorySlug || undefined,
+        challenge_id: challengeId || undefined,
         source: source || undefined,
+        date_from: dateFrom || undefined,
+        date_to: dateTo || undefined,
       });
       setDiary(res);
     } catch (err) {
@@ -37,7 +51,7 @@ export function DiaryTab() {
     } finally {
       setLoading(false);
     }
-  }, [query, categorySlug, source]);
+  }, [query, categorySlug, challengeId, source, dateFrom, dateTo]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -46,7 +60,9 @@ export function DiaryTab() {
     return () => clearTimeout(timer);
   }, [loadDiary]);
 
-  const hasFilters = Boolean(query.trim() || categorySlug || source);
+  const hasFilters = Boolean(
+    query.trim() || categorySlug || challengeId || source || dateFrom || dateTo,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -95,13 +111,56 @@ export function DiaryTab() {
               onClick={() => {
                 setQuery("");
                 setCategorySlug("");
+                setChallengeId("");
                 setSource("");
+                setDateFrom("");
+                setDateTo("");
               }}
               className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-3 py-2 text-xs font-semibold text-[#0F1722] hover:border-[#0F1722]"
             >
               <X className="h-3.5 w-3.5" /> Limpar filtros
             </button>
           )}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="flex flex-col gap-1 text-xs font-medium text-[#475569]">
+            Desafio
+            <select
+              value={challengeId}
+              onChange={(e) => setChallengeId(e.target.value)}
+              className="min-h-10 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722]"
+            >
+              <option value="">Todos os desafios</option>
+              {challenges
+                .filter((c) => c.is_member)
+                .map((ch) => (
+                  <option key={ch.id} value={ch.id}>
+                    {ch.title}
+                  </option>
+                ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs font-medium text-[#475569]">
+            Data inicial
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="min-h-10 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722]"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-xs font-medium text-[#475569]">
+            Data final
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="min-h-10 rounded-lg border border-[#CBD5E1] bg-[#FAF9F6] px-3 py-1.5 text-sm text-[#0F1722]"
+            />
+          </label>
         </div>
 
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por categoria">

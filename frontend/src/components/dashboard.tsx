@@ -93,6 +93,13 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
   const [quickSyncMsg, setQuickSyncMsg] = useState<string | null>(null);
 
   const [feedFilter, setFeedFilter] = useState<string>("all");
+  const [hasMoreFeed, setHasMoreFeed] = useState(false);
+  const [loadingMoreFeed, setLoadingMoreFeed] = useState(false);
+  const [leaderboardSort, setLeaderboardSort] = useState<"points" | "streak" | "active_days">(
+    "points",
+  );
+
+  const FEED_PAGE_SIZE = 30;
 
   function switchTab(next: TabId) {
     setTab(next);
@@ -131,10 +138,11 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
     try {
       const [chDetail, chFeed] = await Promise.all([
         fetchChallengeDetail(challengeId),
-        fetchChallengeFeed(challengeId),
+        fetchChallengeFeed(challengeId, { limit: FEED_PAGE_SIZE }),
       ]);
       setDetail(chDetail);
       setFeed(chFeed);
+      setHasMoreFeed(chFeed.length === FEED_PAGE_SIZE);
     } catch (err) {
       setDetailError(
         err instanceof Error ? err.message : "Não foi possível carregar este desafio.",
@@ -202,6 +210,22 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
     setTimeout(() => setCopiedCode(false), 1800);
   }
 
+  async function handleLoadMoreFeed() {
+    if (!activeChallengeId || feed.length === 0) return;
+    setLoadingMoreFeed(true);
+    try {
+      const last = feed[feed.length - 1];
+      const older = await fetchChallengeFeed(activeChallengeId, {
+        before: last.created_at,
+        limit: FEED_PAGE_SIZE,
+      });
+      setFeed((prev) => [...prev, ...older]);
+      setHasMoreFeed(older.length === FEED_PAGE_SIZE);
+    } finally {
+      setLoadingMoreFeed(false);
+    }
+  }
+
   function handleCheckinUpdated(updated: CheckIn) {
     setFeed((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
     if (activeChallengeId) {
@@ -250,6 +274,26 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
   );
 
   const myLeaderboardEntry = detail?.leaderboard.find((e) => e.user_id === user.id);
+
+  const sortedLeaderboard = useMemo(() => {
+    const entries = [...(detail?.leaderboard ?? [])];
+    if (leaderboardSort === "streak") {
+      entries.sort(
+        (a, b) =>
+          b.current_streak - a.current_streak ||
+          b.total_points - a.total_points ||
+          b.active_days - a.active_days,
+      );
+    } else if (leaderboardSort === "active_days") {
+      entries.sort(
+        (a, b) =>
+          b.active_days - a.active_days ||
+          b.total_points - a.total_points ||
+          b.current_streak - a.current_streak,
+      );
+    }
+    return entries;
+  }, [detail?.leaderboard, leaderboardSort]);
 
   const reportedCount = useMemo(
     () => feed.filter((c) => c.reports_count > 0).length,
@@ -717,29 +761,43 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                         Nenhum check-in encontrado para este filtro.
                       </div>
                     ) : (
-                      groupedFeedEntries.map((entry) =>
-                        entry.type === "group" ? (
-                          <AutoSyncGroupCard
-                            key={entry.key}
-                            items={entry.items}
-                            currentUserId={user.id}
-                            isChallengeAdmin={isAdmin}
-                            isMember={detail.challenge.is_member}
-                            scoringMode={detail.challenge.scoring_mode}
-                            onUpdated={handleCheckinUpdated}
-                          />
-                        ) : (
-                          <CheckinCard
-                            key={entry.checkin.id}
-                            checkin={entry.checkin}
-                            currentUserId={user.id}
-                            isChallengeAdmin={isAdmin}
-                            isMember={detail.challenge.is_member}
-                            scoringMode={detail.challenge.scoring_mode}
-                            onUpdated={handleCheckinUpdated}
-                          />
-                        ),
-                      )
+                      <>
+                        {groupedFeedEntries.map((entry) =>
+                          entry.type === "group" ? (
+                            <AutoSyncGroupCard
+                              key={entry.key}
+                              items={entry.items}
+                              currentUserId={user.id}
+                              isChallengeAdmin={isAdmin}
+                              isMember={detail.challenge.is_member}
+                              scoringMode={detail.challenge.scoring_mode}
+                              onUpdated={handleCheckinUpdated}
+                            />
+                          ) : (
+                            <CheckinCard
+                              key={entry.checkin.id}
+                              checkin={entry.checkin}
+                              currentUserId={user.id}
+                              isChallengeAdmin={isAdmin}
+                              isMember={detail.challenge.is_member}
+                              scoringMode={detail.challenge.scoring_mode}
+                              onUpdated={handleCheckinUpdated}
+                            />
+                          ),
+                        )}
+                        {hasMoreFeed && (
+                          <button
+                            type="button"
+                            disabled={loadingMoreFeed}
+                            onClick={() => void handleLoadMoreFeed()}
+                            className="min-h-10 rounded-lg border border-[#DDD8CE] bg-white px-4 py-2 text-xs font-semibold text-[#0F1722] hover:border-[#0F1722] disabled:opacity-50"
+                          >
+                            {loadingMoreFeed
+                              ? "Carregando anteriores..."
+                              : "Carregar entregas anteriores"}
+                          </button>
+                        )}
+                      </>
                     )}
                   </section>
                 </div>
@@ -747,17 +805,43 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                 {/* Official Timing Board (Placar Oficial) — first on mobile, right column on desktop */}
                 <aside className="order-1 flex flex-col gap-4 lg:order-2">
                   <div className="rounded-xl bg-[#0F1722] p-5 text-white shadow-sm">
-                    <h3 className="flex items-center justify-between gap-2 text-sm font-bold uppercase tracking-wider text-slate-300">
-                      <span className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-300">
                         <Trophy className="h-4 w-4 text-[#D94E28]" />
                         Placar Oficial
-                      </span>
+                      </h3>
                       <span className="font-mono text-[11px] text-slate-400">
-                        {detail.leaderboard.length} atletas
+                        {sortedLeaderboard.length} atletas
                       </span>
-                    </h3>
-                    <div className="mt-4 space-y-2.5">
-                      {detail.leaderboard.map((entry, idx) => (
+                    </div>
+
+                    <div
+                      className="mt-3 grid grid-cols-3 gap-1 rounded-lg bg-[#182232] p-1 text-[11px] font-semibold"
+                      role="group"
+                      aria-label="Ordenar placar"
+                    >
+                      {[
+                        { id: "points" as const, label: "Pontos" },
+                        { id: "streak" as const, label: "Ofensiva" },
+                        { id: "active_days" as const, label: "Dias" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setLeaderboardSort(opt.id)}
+                          className={`min-h-7 rounded-md transition ${
+                            leaderboardSort === opt.id
+                              ? "bg-[#D94E28] text-white"
+                              : "text-slate-300 hover:text-white"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-3 space-y-2.5">
+                      {sortedLeaderboard.map((entry, idx) => (
                         <div
                           key={entry.user_id}
                           className={`flex items-center justify-between gap-2 rounded-lg border p-3 ${
@@ -821,7 +905,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
           />
         </div>
 
-        {tab === "diary" && <DiaryTab />}
+        {tab === "diary" && <DiaryTab challenges={challenges} />}
 
         <div className={tab === "integrations" ? "block" : "hidden"}>
           <IntegrationsTab

@@ -8,15 +8,32 @@ export interface Integration {
   external_username: string;
   target_challenge_id: string | null;
   last_synced_at: string | null;
+  has_oauth_token?: boolean;
 }
 
 export interface User {
   id: string;
   username: string;
   display_name: string;
+  email?: string | null;
   avatar_url: string | null;
   bio: string | null;
+  has_github_oauth?: boolean;
   integrations: Integration[];
+}
+
+export interface AuthProviders {
+  github_oauth_enabled: boolean;
+  password_auth_enabled: boolean;
+  dev_login_enabled: boolean;
+}
+
+export interface GitHubRepoItem {
+  github_repo_id: number;
+  full_name: string;
+  default_branch: string;
+  private: boolean;
+  is_monitored: boolean;
 }
 
 export interface AuthResponse {
@@ -207,6 +224,38 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+export function fetchAuthProviders(): Promise<AuthProviders> {
+  return apiRequest<AuthProviders>("/auth/providers");
+}
+
+export function getGithubOAuthUrl(): string {
+  return `${API_BASE_URL}/auth/github/login`;
+}
+
+export function registerWithPassword(payload: {
+  username: string;
+  password: string;
+  display_name?: string;
+  email?: string;
+  github_username?: string;
+  leetcode_username?: string;
+}): Promise<AuthResponse> {
+  return apiRequest<AuthResponse>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function loginWithPassword(payload: {
+  username: string;
+  password: string;
+}): Promise<AuthResponse> {
+  return apiRequest<AuthResponse>("/auth/password-login", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export function loginUser(payload: {
   username: string;
   display_name?: string;
@@ -246,6 +295,8 @@ export function createChallenge(payload: {
   visibility: Visibility;
   scoring_mode: ScoringMode;
   timezone: string;
+  start_date?: string;
+  end_date?: string | null;
   rest_days_per_week: number;
   daily_points_cap: number;
   category_configs: Array<{
@@ -281,8 +332,15 @@ export function registerRestDay(challengeId: string): Promise<RestDayResponse> {
   });
 }
 
-export function fetchChallengeFeed(challengeId: string): Promise<CheckIn[]> {
-  return apiRequest<CheckIn[]>(`/challenges/${challengeId}/feed`);
+export function fetchChallengeFeed(
+  challengeId: string,
+  params?: { before?: string; limit?: number },
+): Promise<CheckIn[]> {
+  const search = new URLSearchParams();
+  if (params?.before) search.set("before", params.before);
+  if (params?.limit) search.set("limit", String(params.limit));
+  const qs = search.toString();
+  return apiRequest<CheckIn[]>(`/challenges/${challengeId}/feed${qs ? `?${qs}` : ""}`);
 }
 
 export function createCheckin(
@@ -349,14 +407,38 @@ export function moderateCheckin(
 export function fetchDiary(params: {
   q?: string;
   category_slug?: string;
+  challenge_id?: string;
   source?: string;
+  date_from?: string;
+  date_to?: string;
 }): Promise<DiaryResponse> {
   const search = new URLSearchParams();
   if (params.q) search.set("q", params.q);
   if (params.category_slug) search.set("category_slug", params.category_slug);
+  if (params.challenge_id) search.set("challenge_id", params.challenge_id);
   if (params.source) search.set("source", params.source);
+  if (params.date_from) search.set("date_from", params.date_from);
+  if (params.date_to) search.set("date_to", params.date_to);
   const qs = search.toString();
   return apiRequest<DiaryResponse>(`/diary${qs ? `?${qs}` : ""}`);
+}
+
+export function fetchGithubRepos(): Promise<GitHubRepoItem[]> {
+  return apiRequest<GitHubRepoItem[]>("/integrations/github/repos");
+}
+
+export function saveMonitoredRepos(payload: {
+  target_challenge_id?: string | null;
+  repos: Array<{
+    github_repo_id: number;
+    full_name: string;
+    default_branch: string;
+  }>;
+}): Promise<GitHubRepoItem[]> {
+  return apiRequest<GitHubRepoItem[]>("/integrations/github/repos", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function syncIntegrations(payload: {

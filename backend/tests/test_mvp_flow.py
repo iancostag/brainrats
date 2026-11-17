@@ -286,3 +286,78 @@ def test_sync_ignores_previous_days_events(
     assert payload["created_count"] == 2
     titles = {item["title"] for item in payload["created_checkins"]}
     assert titles == {"[repo] Commit de hoje", "Valid Anagram"}
+
+
+def test_password_auth_diary_dates_and_feed_cursor(mvp_client: TestClient) -> None:
+    providers = mvp_client.get("/api/v1/auth/providers")
+    assert providers.status_code == 200
+    assert providers.json()["password_auth_enabled"] is True
+
+    reg = mvp_client.post(
+        "/api/v1/auth/register",
+        json={
+            "username": "secure_dev",
+            "password": "my-strong-password",
+            "display_name": "Secure Dev",
+        },
+    )
+    assert reg.status_code == 201
+    assert reg.json()["user"]["username"] == "secure_dev"
+
+    # Dev passwordless login must reject accounts protected by password
+    blocked_dev = mvp_client.post("/api/v1/auth/login", json={"username": "secure_dev"})
+    assert blocked_dev.status_code == 401
+
+    wrong_pw = mvp_client.post(
+        "/api/v1/auth/password-login",
+        json={"username": "secure_dev", "password": "wrong"},
+    )
+    assert wrong_pw.status_code == 401
+
+    ok_pw = mvp_client.post(
+        "/api/v1/auth/password-login",
+        json={"username": "secure_dev", "password": "my-strong-password"},
+    )
+    assert ok_pw.status_code == 200
+    headers = {"Authorization": f"Bearer {ok_pw.json()['access_token']}"}
+
+    challenges = mvp_client.get("/api/v1/challenges", headers=headers).json()
+    ch_id = challenges[0]["id"]
+
+    # Create 2 check-ins and verify feed cursor `before` + diary date range filter
+    c1 = mvp_client.post(
+        f"/api/v1/challenges/{ch_id}/checkins",
+        headers=headers,
+        json={"category_slug": "data", "title": "Query SQL Window Functions"},
+    ).json()
+    c2 = mvp_client.post(
+        f"/api/v1/challenges/{ch_id}/checkins",
+        headers=headers,
+        json={"category_slug": "esw", "title": "Revisão DDD"},
+    ).json()
+
+    page1 = mvp_client.get(
+        f"/api/v1/challenges/{ch_id}/feed?limit=1", headers=headers
+    ).json()
+    assert len(page1) == 1
+    assert page1[0]["id"] == c2["id"]
+
+    page2 = mvp_client.get(
+        f"/api/v1/challenges/{ch_id}/feed?limit=1&before={page1[0]['created_at']}",
+        headers=headers,
+    ).json()
+    assert len(page2) == 1
+    assert page2[0]["id"] == c1["id"]
+
+    future_day = (datetime.now(UTC) + timedelta(days=2)).date().isoformat()
+    empty_diary = mvp_client.get(
+        f"/api/v1/diary?date_from={future_day}", headers=headers
+    ).json()
+    assert empty_diary["total_entries"] == 0
+
+    today_day = c1["study_date"]
+    filtered_diary = mvp_client.get(
+        f"/api/v1/diary?challenge_id={ch_id}&date_from={today_day}&date_to={today_day}",
+        headers=headers,
+    ).json()
+    assert filtered_diary["total_entries"] == 2
