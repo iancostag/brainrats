@@ -1,7 +1,7 @@
 "use client";
 
 import { MoreHorizontal, type LucideIcon } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 export interface ActionMenuItem {
   label: string;
@@ -11,8 +11,23 @@ export interface ActionMenuItem {
   disabled?: boolean;
 }
 
-/** Menu "⋯" com as ações secundárias de um card. Fecha com Esc, clique fora ou ao escolher. */
-export function ActionMenu({ items, label }: { items: ActionMenuItem[]; label: string }) {
+/**
+ * Menu com ações secundárias. Fecha com Esc, clique fora ou ao escolher; setas navegam.
+ * Por padrão o gatilho é "⋯"; `trigger` permite outro conteúdo (ex.: avatar no perfil).
+ */
+export function ActionMenu({
+  items,
+  label,
+  trigger,
+  triggerClassName,
+  header,
+}: {
+  items: ActionMenuItem[];
+  label: string;
+  trigger?: ReactNode;
+  triggerClassName?: string;
+  header?: ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -62,9 +77,12 @@ export function ActionMenu({ items, label }: { items: ActionMenuItem[]; label: s
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((prev) => !prev)}
-        className="inline-flex h-10 w-10 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-well hover:text-ink-strong"
+        className={
+          triggerClassName ??
+          "inline-flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-well hover:text-ink-strong"
+        }
       >
-        <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+        {trigger ?? <MoreHorizontal className="h-4 w-4" aria-hidden="true" />}
       </button>
       {open && (
         <div
@@ -72,8 +90,9 @@ export function ActionMenu({ items, label }: { items: ActionMenuItem[]; label: s
           id={menuId}
           role="menu"
           aria-label={label}
-          className="absolute right-0 top-11 z-10 flex min-w-44 flex-col rounded-lg border border-lane bg-card p-1 shadow-[0_8px_24px_-8px_rgba(15,23,34,0.25)]"
+          className="animate-reveal absolute top-full right-0 z-40 mt-1.5 flex min-w-48 flex-col rounded-xl border border-lane bg-card p-1 shadow-raised"
         >
+          {header}
           {items.map((item) => {
             const Icon = item.icon;
             return (
@@ -86,7 +105,7 @@ export function ActionMenu({ items, label }: { items: ActionMenuItem[]; label: s
                   setOpen(false);
                   item.onSelect();
                 }}
-                className={`flex min-h-10 items-center gap-2 rounded-md px-3 text-left text-sm font-medium transition-colors disabled:opacity-50 ${
+                className={`flex min-h-10 items-center gap-2 rounded-lg px-3 text-left text-sm font-medium transition-colors disabled:opacity-50 ${
                   item.tone === "danger"
                     ? "text-red-900 hover:bg-red-50"
                     : "text-ink-3 hover:bg-well hover:text-ink-strong"

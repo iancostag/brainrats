@@ -15,6 +15,7 @@ import {
   type User,
 } from "@/lib/api";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Notice } from "@/components/ui";
 
 interface LoginViewProps {
   sessionNotice?: string | null;
@@ -103,284 +104,274 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
   }
 
   return (
-    <div className="min-h-screen bg-canvas">
-      <header className="border-b-[3px] border-accent bg-shell px-5 py-3 text-white sm:px-8">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <div className="flex items-center gap-3">
+    <div className="grid min-h-screen bg-canvas lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+      {/* Painel da marca: navy com o mascote. No celular vira um cabeçalho compacto. */}
+      <section className="relative isolate overflow-hidden bg-shell px-6 py-6 text-white sm:px-10 lg:flex lg:flex-col lg:justify-between lg:py-10">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-accent-bright/30 blur-3xl" />
+          <div className="absolute -bottom-40 -left-24 h-96 w-96 rounded-full bg-grape/25 blur-3xl" />
+          <div className="absolute inset-0 bg-[repeating-linear-gradient(115deg,transparent_0_22px,rgb(255_255_255/0.025)_22px_24px)]" />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-2.5">
             <Image
               src="/logo-icon.jpg"
               alt=""
               width={48}
               height={48}
               priority
-              className="h-11 w-11 rounded-xl border border-slate-700 object-cover sm:h-12 sm:w-12"
+              className="h-11 w-11 rounded-xl object-cover ring-1 ring-white/10"
             />
-            <span className="text-xl font-extrabold tracking-tight">BrainRats</span>
-          </div>
-          <ThemeToggle />
+            <span className="text-xl font-extrabold tracking-tight">
+              Brain<span className="text-accent-bright">Rats</span>
+            </span>
+          </span>
+          <ThemeToggle tone="dark" className="lg:hidden" />
         </div>
-      </header>
 
-      <main className="mx-auto flex min-h-[calc(100vh-64px)] max-w-5xl flex-col justify-center gap-10 px-5 py-10 sm:px-8 md:flex-row md:items-center md:gap-10 lg:gap-14">
-        <section className="flex flex-1 flex-col gap-5">
+        <div className="mt-8 flex flex-col gap-6 lg:mt-0">
           <Image
-            src="/logo-wordmark.png"
-            alt="BrainRats"
-            width={420}
-            height={128}
+            src="/mascot.png"
+            alt=""
+            width={480}
+            height={316}
             priority
-            className="-my-3 h-24 w-auto max-w-full self-start object-contain object-left mix-blend-multiply sm:-my-5 sm:h-32 dark:hidden"
+            className="hidden w-64 -rotate-3 drop-shadow-[0_24px_40px_rgb(244_81_30/0.35)] lg:block xl:w-80"
           />
-
-          <h1 className="max-w-xl text-3xl font-extrabold tracking-tight text-ink-strong sm:text-5xl sm:leading-[1.08]">
-            Constância em grupo para estudos de programação.
+          <h1 className="max-w-xl text-3xl font-extrabold tracking-tight text-balance sm:text-5xl sm:leading-[1.05]">
+            Constância em grupo para estudos de{" "}
+            <span className="text-accent-bright">programação</span>.
           </h1>
-
-          <p className="max-w-xl text-base leading-relaxed text-ink-2">
-            Compita com amigos ou sua turma em desafios com{" "}
-            <strong className="font-semibold text-ink-strong">Modo Check-in</strong> ou{" "}
-            <strong className="font-semibold text-ink-strong">Modo Pontuação</strong>, registre
-            estudos sem atrito e proteja sua ofensiva com dias de descanso.
+          <p className="max-w-lg text-base leading-relaxed text-slate-300">
+            Compita com amigos ou com a turma no{" "}
+            <strong className="font-semibold text-white">Modo Check-in</strong> ou no{" "}
+            <strong className="font-semibold text-white">Modo Pontuação</strong>, registre estudos
+            sem atrito e proteja sua ofensiva com dias de descanso.
           </p>
 
-          <ul className="mt-1 space-y-3 text-sm text-ink-3">
+          <ul className="hidden gap-3 text-sm text-slate-300 sm:grid">
             <li className="flex items-start gap-3">
-              <Code2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-gold ring-1 ring-white/10">
+                <Code2 className="h-4 w-4" aria-hidden="true" />
+              </span>
               <span>
-                <strong className="font-semibold text-ink-strong">Cinco raias de estudo:</strong>{" "}
+                <strong className="font-semibold text-white">Cinco categorias de estudo:</strong>{" "}
                 LeetCode, Projeto, Livros, ESW (Eng. de Software) e Dados.
               </span>
             </li>
             <li className="flex items-start gap-3">
-              <GitBranch className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" />
+              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-emerald-300 ring-1 ring-white/10">
+                <GitBranch className="h-4 w-4" aria-hidden="true" />
+              </span>
               <span>
-                <strong className="font-semibold text-ink-strong">Publicação automática:</strong>{" "}
+                <strong className="font-semibold text-white">Publicação automática:</strong>{" "}
                 commits do GitHub e submissões do LeetCode entram direto no desafio.
               </span>
             </li>
             <li className="flex items-start gap-3">
-              <BookMarked className="mt-0.5 h-4 w-4 shrink-0 text-blue-700" />
+              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/5 text-grape-soft ring-1 ring-white/10">
+                <BookMarked className="h-4 w-4" aria-hidden="true" />
+              </span>
               <span>
-                <strong className="font-semibold text-ink-strong">
-                  Diário pesquisável e placar:
-                </strong>{" "}
-                anotações salvas em histórico com busca, reações e moderação do grupo.
+                <strong className="font-semibold text-white">Diário pesquisável e placar:</strong>{" "}
+                anotações em histórico com busca, reações e moderação do grupo.
               </span>
             </li>
           </ul>
-        </section>
+        </div>
 
-        <section className="w-full max-w-md rounded-xl border border-lane bg-card p-6">
-          <div className="flex items-center gap-4">
-            <Image
-              src="/logo-emblem.jpg"
-              alt=""
-              width={80}
-              height={80}
-              className="h-16 w-16 shrink-0 rounded-full border border-lane object-cover sm:h-20 sm:w-20"
-            />
-            <div>
-              <h2 className="text-xl font-bold text-ink-strong">Acesse sua conta</h2>
-              <p className="text-sm text-ink-2">
-                {providers.github_oauth_enabled
-                  ? "Entre com o GitHub ou com usuário e senha."
-                  : "Entre com seu usuário e senha."}
-              </p>
-            </div>
+        <p className="mt-8 hidden font-mono text-xs text-slate-500 lg:block">BrainRats · est. 2026</p>
+      </section>
+
+      <main className="flex items-start justify-center px-5 py-8 sm:px-8 lg:items-center lg:py-12">
+        <div className="w-full max-w-md">
+          <div className="mb-4 hidden justify-end lg:flex">
+            <ThemeToggle />
           </div>
+          <section aria-labelledby="login-title" className="card p-6 sm:p-7">
+            <h2 id="login-title" className="text-2xl font-extrabold tracking-tight text-ink-strong">
+              {mode === "login" ? "Acesse sua conta" : "Crie sua conta"}
+            </h2>
+            <p className="mt-1 text-sm text-ink-2">
+              {providers.github_oauth_enabled
+                ? "Entre com o GitHub ou com usuário e senha."
+                : "Entre com seu usuário e senha."}
+            </p>
 
-          {sessionNotice && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="mt-4 rounded-lg border border-amber-600/40 bg-amber-50 px-3 py-2 text-xs text-amber-900"
-            >
-              {sessionNotice}
-            </div>
-          )}
+            {sessionNotice && (
+              <Notice tone="rest" className="mt-4">
+                {sessionNotice}
+              </Notice>
+            )}
 
-          <div className="mt-5">
             {providers.github_oauth_enabled ? (
-              <a
-                href={getGithubOAuthUrl()}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-action px-4 py-2.5 text-sm font-bold text-white transition hover:bg-action-hover"
-              >
-                <Github className="h-4 w-4" />
+              <a href={getGithubOAuthUrl()} className="btn btn-dark mt-5 w-full">
+                <Github className="h-4 w-4" aria-hidden="true" />
                 Entrar com GitHub
               </a>
             ) : null}
-          </div>
 
-          <div
-            role="tablist"
-            aria-label="Modo de acesso"
-            className="mt-4 grid grid-cols-2 gap-1 rounded-lg border border-lane bg-well p-1 text-xs font-semibold"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "login"}
-              onClick={() => {
-                setMode("login");
-                setError(null);
-              }}
-              className={`min-h-9 rounded-md transition ${
-                mode === "login"
-                  ? "bg-card text-ink-strong ring-1 ring-lane"
-                  : "text-ink-2 hover:text-ink-strong"
-              }`}
+            <div
+              role="tablist"
+              aria-label="Modo de acesso"
+              className="segmented mt-5 grid-cols-2 bg-well ring-1 ring-lane-soft"
             >
-              Entrar
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === "register"}
-              onClick={() => {
-                setMode("register");
-                setError(null);
-              }}
-              className={`min-h-9 rounded-md transition ${
-                mode === "register"
-                  ? "bg-card text-ink-strong ring-1 ring-lane"
-                  : "text-ink-2 hover:text-ink-strong"
-              }`}
-            >
-              Criar conta
-            </button>
-          </div>
+              {(
+                [
+                  { id: "login", label: "Entrar" },
+                  { id: "register", label: "Criar conta" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === opt.id}
+                  onClick={() => {
+                    setMode(opt.id);
+                    setError(null);
+                  }}
+                  className={`segmented-item ${
+                    mode === opt.id
+                      ? "bg-card text-ink-strong shadow-card ring-1 ring-lane"
+                      : "text-ink-2 hover:text-ink-strong"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
 
-          <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium text-ink-label">Username *</span>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="ex: iancostag"
-                autoComplete="username"
-                className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong transition-colors placeholder:text-ink-muted focus:border-ink-strong"
-                required
-              />
-            </label>
-
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="flex items-center gap-1 font-medium text-ink-label">
-                <Lock className="h-3.5 w-3.5" /> Senha *
-              </span>
-              <div className="relative flex items-center">
+            <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3.5">
+              <label className="field-label">
+                Username *
                 <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === "register" ? "Mínimo 6 caracteres" : "Sua senha"}
-                  autoComplete={mode === "register" ? "new-password" : "current-password"}
-                  minLength={mode === "register" ? 6 : 1}
-                  className="min-h-11 w-full rounded-lg border border-lane bg-well py-2 pl-3 pr-11 text-ink-strong transition-colors placeholder:text-ink-muted focus:border-ink-strong"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Ex.: iancostag"
+                  autoComplete="username"
+                  className="field"
                   required
                 />
+              </label>
+
+              <label className="field-label">
+                <span className="inline-flex items-center gap-1">
+                  <Lock className="h-3.5 w-3.5" aria-hidden="true" /> Senha *
+                </span>
+                <span className="relative flex items-center">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder={mode === "register" ? "Mínimo 6 caracteres" : "Sua senha"}
+                    autoComplete={mode === "register" ? "new-password" : "current-password"}
+                    minLength={mode === "register" ? 6 : 1}
+                    className="field pr-11"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-lane-soft hover:text-ink-strong"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </button>
+                </span>
+              </label>
+
+              {mode === "register" && (
+                <div className="animate-reveal flex flex-col gap-3.5">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="field-label">
+                      Nome
+                      <input
+                        type="text"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder="Ian Costa"
+                        autoComplete="name"
+                        className="field"
+                      />
+                    </label>
+                    <label className="field-label">
+                      E-mail (opcional)
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="voce@exemplo.com"
+                        autoComplete="email"
+                        className="field"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="field-label">
+                      <span className="inline-flex items-center gap-1">
+                        <Github className="h-3.5 w-3.5" aria-hidden="true" /> GitHub (opcional)
+                      </span>
+                      <input
+                        type="text"
+                        value={githubUsername}
+                        onChange={(e) => setGithubUsername(e.target.value)}
+                        placeholder="iancostag"
+                        className="field"
+                      />
+                    </label>
+
+                    <label className="field-label">
+                      <span className="inline-flex items-center gap-1">
+                        <Code2 className="h-3.5 w-3.5" aria-hidden="true" /> LeetCode (opcional)
+                      </span>
+                      <input
+                        type="text"
+                        value={leetcodeUsername}
+                        onChange={(e) => setLeetcodeUsername(e.target.value)}
+                        placeholder="usuario_lc"
+                        className="field"
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <Notice tone="error" onDismiss={() => setError(null)}>
+                  {error}
+                </Notice>
+              )}
+
+              <button type="submit" disabled={loading} className="btn btn-primary mt-1">
+                {loading
+                  ? "Autenticando..."
+                  : mode === "login"
+                    ? "Entrar com senha"
+                    : "Criar conta"}
+              </button>
+
+              {providers.dev_login_enabled && (
                 <button
                   type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                  className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-lane-soft hover:text-ink-strong"
+                  disabled={loading}
+                  onClick={() => void handleDemoLogin()}
+                  className="btn btn-secondary"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  <Sparkles className="h-4 w-4 shrink-0 text-accent-text" aria-hidden="true" />
+                  Entrar com conta demo
                 </button>
-              </div>
-            </label>
-
-            {mode === "register" && (
-              <>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="flex flex-col gap-1 text-sm">
-                    <span className="font-medium text-ink-label">Nome</span>
-                    <input
-                      type="text"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="Ian Costa"
-                      autoComplete="name"
-                      className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong transition-colors placeholder:text-ink-muted focus:border-ink-strong"
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1 text-sm">
-                    <span className="font-medium text-ink-label">E-mail (opcional)</span>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="voce@exemplo.com"
-                      autoComplete="email"
-                      className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong transition-colors placeholder:text-ink-muted focus:border-ink-strong"
-                    />
-                  </label>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="flex flex-col gap-1 text-sm">
-                    <span className="flex items-center gap-1 font-medium text-ink-label">
-                      <Github className="h-3.5 w-3.5" /> GitHub (opcional)
-                    </span>
-                    <input
-                      type="text"
-                      value={githubUsername}
-                      onChange={(e) => setGithubUsername(e.target.value)}
-                      placeholder="iancostag"
-                      className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong transition-colors placeholder:text-ink-muted focus:border-ink-strong"
-                    />
-                  </label>
-
-                  <label className="flex flex-col gap-1 text-sm">
-                    <span className="flex items-center gap-1 font-medium text-ink-label">
-                      <Code2 className="h-3.5 w-3.5" /> LeetCode (opcional)
-                    </span>
-                    <input
-                      type="text"
-                      value={leetcodeUsername}
-                      onChange={(e) => setLeetcodeUsername(e.target.value)}
-                      placeholder="usuario_lc"
-                      className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong transition-colors placeholder:text-ink-muted focus:border-ink-strong"
-                    />
-                  </label>
-                </div>
-              </>
-            )}
-
-            {error && (
-              <p
-                role="alert"
-                className="rounded-lg border border-red-600/35 bg-red-50 px-3 py-2 text-xs font-medium text-red-900"
-              >
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-1 min-h-11 rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-white transition hover:bg-accent-hover disabled:opacity-50"
-            >
-              {loading
-                ? "Autenticando..."
-                : mode === "login"
-                  ? "Entrar com Senha"
-                  : "Criar Conta"}
-            </button>
-
-            {providers.dev_login_enabled && (
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => void handleDemoLogin()}
-                className="inline-flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-ink-strong/20 bg-well px-4 py-2.5 text-sm font-semibold text-ink-strong transition hover:border-ink-strong hover:bg-canvas disabled:opacity-50"
-              >
-                <Sparkles className="h-4 w-4 shrink-0 text-accent-text" />
-                Entrar com Conta Demo
-              </button>
-            )}
-          </form>
-        </section>
+              )}
+            </form>
+          </section>
+        </div>
       </main>
     </div>
   );

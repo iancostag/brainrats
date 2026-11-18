@@ -74,9 +74,13 @@ export default function HomePage() {
         aria-live="polite"
         className="flex min-h-screen items-center justify-center bg-canvas px-6"
       >
-        <div className="flex items-center gap-3 rounded-xl border border-lane bg-card px-5 py-4 text-sm font-medium text-ink-2">
-          <RefreshCw className="h-4 w-4 animate-spin text-accent-text" />
-          <span>Carregando sua sessão no BrainRats...</span>
+        <div className="flex flex-col items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-icon.jpg" alt="" className="h-16 w-16 rounded-2xl object-cover shadow-raised" />
+          <div className="card flex items-center gap-3 px-5 py-3 text-sm font-medium text-ink-2">
+            <RefreshCw className="h-4 w-4 animate-spin text-accent-text" aria-hidden="true" />
+            <span>Carregando sua sessão no BrainRats...</span>
+          </div>
         </div>
       </main>
     );
@@ -85,7 +89,7 @@ export default function HomePage() {
   if (sessionError) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-canvas px-6">
-        <div className="flex max-w-md flex-col gap-4 rounded-xl border border-lane bg-card p-6 text-center">
+        <div role="alert" className="card flex max-w-md flex-col gap-4 p-6 text-center">
           <h1 className="text-lg font-bold text-ink-strong">
             Falha ao conectar com o servidor
           </h1>
@@ -94,9 +98,9 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => void validateSession()}
-              className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-hover"
+              className="btn btn-primary"
             >
-              <RefreshCw className="h-4 w-4" /> Tentar novamente
+              <RefreshCw className="h-4 w-4" aria-hidden="true" /> Tentar novamente
             </button>
             <button
               type="button"
@@ -105,7 +109,7 @@ export default function HomePage() {
                 setSessionError(null);
                 setUser(null);
               }}
-              className="min-h-10 rounded-lg border border-lane bg-well px-4 py-2 text-sm font-medium text-ink hover:border-ink-strong"
+              className="btn btn-secondary"
             >
               Trocar de conta
             </button>

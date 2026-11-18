@@ -1,6 +1,6 @@
 "use client";
 
-import { BookMarked, RefreshCw, Search, X } from "lucide-react";
+import { BarChart3, BookMarked, ListChecks, Search, Trophy, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -18,7 +18,9 @@ import {
   formatPointsLabel,
   formatStudyDate,
 } from "@/lib/categories";
-import { LaneBadge, LaneNumber } from "@/components/lane-badge";
+import { SourceChip } from "@/components/checkin-card";
+import { CategoryBadge, CategoryFilter, CategoryIcon } from "@/components/lane-badge";
+import { EmptyState, ErrorState, LoadingState, PageHeader } from "@/components/ui";
 
 interface DiaryTabProps {
   challenges: ChallengeListItem[];
@@ -91,10 +93,10 @@ export function DiaryTab({ challenges }: DiaryTabProps) {
     );
     return (
       <span
-        className={`shrink-0 rounded px-2 py-0.5 font-score text-sm ${
+        className={`shrink-0 rounded-full px-2.5 py-0.5 font-score text-sm ${
           entry.status === "invalidated"
             ? "bg-red-100 text-red-900"
-            : "bg-accent/10 text-accent-strong"
+            : "bg-accent/12 text-accent-strong ring-1 ring-accent/25"
         }`}
       >
         {label}
@@ -106,34 +108,98 @@ export function DiaryTab({ challenges }: DiaryTabProps) {
     query.trim() || categorySlug || challengeId || source || dateFrom || dateTo,
   );
 
+  const totalByCategory = diary
+    ? CATEGORY_LIST.reduce((sum, cat) => sum + (diary.by_category[cat.slug] ?? 0), 0)
+    : 0;
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 rounded-xl border border-lane bg-card p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="flex items-center gap-2 font-bold text-ink-strong">
-            <BookMarked className="h-4 w-4 text-accent-text" />
-            Meu Diário de Estudos
-          </h3>
-          {diary && (
-            <span className="text-xs text-ink-2">
-              <span className="font-score text-base text-ink-strong">{diary.total_entries}</span>{" "}
-              registro(s){hasFilters ? " filtrados" : ""} ·{" "}
-              <span className="font-score text-base text-ink-strong">{diary.total_points}</span>{" "}
-              pts válidos
-            </span>
-          )}
-        </div>
+      <PageHeader
+        icon={BarChart3}
+        title="Meu Progresso"
+        description="Seu diário de estudos pesquisável, em todos os desafios."
+      />
 
+      {diary && (
+        <section
+          aria-label="Resumo do diário"
+          className="grid gap-3 sm:grid-cols-[auto_auto_minmax(0,1fr)]"
+        >
+          <div className="card-dark flex items-center gap-3 p-4">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-grape/25 text-grape-soft">
+              <ListChecks className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <p>
+              <span className="block font-score text-3xl leading-none">{diary.total_entries}</span>
+              <span className="text-xs text-slate-300">
+                registro(s){hasFilters ? " filtrados" : ""}
+              </span>
+            </p>
+          </div>
+          <div className="card-dark flex items-center gap-3 p-4">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gold/15 text-gold">
+              <Trophy className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <p>
+              <span className="block font-score text-3xl leading-none">{diary.total_points}</span>
+              <span className="text-xs text-slate-300">pts válidos</span>
+            </p>
+          </div>
+          <div className="card flex flex-col justify-center gap-2.5 p-4">
+            <p className="eyebrow">Por categoria{hasFilters ? " (filtro atual)" : ""}</p>
+            {totalByCategory > 0 ? (
+              <>
+                <div
+                  aria-hidden="true"
+                  className="flex h-2.5 overflow-hidden rounded-full bg-well"
+                >
+                  {CATEGORY_LIST.map((cat) => {
+                    const count = diary.by_category[cat.slug] ?? 0;
+                    if (!count) return null;
+                    return (
+                      <span
+                        key={cat.slug}
+                        className={`${cat.barClass} h-full`}
+                        style={{ width: `${(count / totalByCategory) * 100}%` }}
+                      />
+                    );
+                  })}
+                </div>
+                <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-2">
+                  {CATEGORY_LIST.map((cat) => {
+                    const count = diary.by_category[cat.slug] ?? 0;
+                    if (!count) return null;
+                    return (
+                      <li key={cat.slug} className="inline-flex items-center gap-1.5">
+                        <CategoryIcon slug={cat.slug} />
+                        {cat.shortLabel}
+                        <span className="font-score text-sm text-ink-strong">{count}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            ) : (
+              <p className="text-xs text-ink-2">Nenhum registro ainda.</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      <section aria-label="Filtros do diário" className="card flex flex-col gap-3 p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-3.5 h-4 w-4 text-ink-muted" />
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-ink-muted"
+              aria-hidden="true"
+            />
             <input
-              type="text"
+              type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar por título ou notas (ex: System Design, SQL, Two Sum)..."
+              placeholder="Buscar por título ou notas (ex.: System Design, SQL, Two Sum)..."
               aria-label="Buscar no diário"
-              className="min-h-11 w-full rounded-lg border border-lane bg-well py-2 pl-9 pr-3 text-sm text-ink-strong placeholder:text-ink-muted"
+              className="field pl-10"
             />
           </div>
 
@@ -141,7 +207,7 @@ export function DiaryTab({ challenges }: DiaryTabProps) {
             value={source}
             onChange={(e) => setSource(e.target.value)}
             aria-label="Filtrar por origem"
-            className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-sm text-ink-strong"
+            className="field sm:w-48"
           >
             <option value="">Todas as origens</option>
             <option value="manual">Manual</option>
@@ -160,20 +226,20 @@ export function DiaryTab({ challenges }: DiaryTabProps) {
                 setDateFrom("");
                 setDateTo("");
               }}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-lane bg-card px-3 py-2 text-xs font-semibold text-ink-strong transition-colors hover:border-ink-strong"
+              className="btn btn-secondary"
             >
-              <X className="h-3.5 w-3.5" /> Limpar filtros
+              <X className="h-4 w-4" aria-hidden="true" /> Limpar filtros
             </button>
           )}
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <label className="flex flex-col gap-1 text-xs font-medium text-ink-2">
+          <label className="field-label">
             Desafio
             <select
               value={challengeId}
               onChange={(e) => setChallengeId(e.target.value)}
-              className="min-h-10 rounded-lg border border-lane bg-well px-3 py-1.5 text-sm text-ink-strong"
+              className="field"
             >
               <option value="">Todos os desafios</option>
               {challenges
@@ -186,155 +252,124 @@ export function DiaryTab({ challenges }: DiaryTabProps) {
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-ink-2">
+          <label className="field-label">
             Data inicial
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="min-h-10 rounded-lg border border-lane bg-well px-3 py-1.5 text-sm text-ink-strong"
+              className="field"
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-xs font-medium text-ink-2">
+          <label className="field-label">
             Data final
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="min-h-10 rounded-lg border border-lane bg-well px-3 py-1.5 text-sm text-ink-strong"
+              className="field"
             />
           </label>
         </div>
 
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por categoria">
-          <button
-            type="button"
-            aria-pressed={categorySlug === ""}
-            onClick={() => setCategorySlug("")}
-            className={`min-h-10 rounded-lg border px-3 py-1 text-xs font-semibold ${
-              categorySlug === ""
-                ? "border-action bg-action text-white"
-                : "border-lane bg-well text-ink-2 hover:text-ink-strong"
-            }`}
-          >
-            Todas
-          </button>
-          {CATEGORY_LIST.map((cat) => {
-            const active = categorySlug === cat.slug;
-            const count = diary?.by_category[cat.slug];
-            return (
-              <button
-                key={cat.slug}
-                type="button"
-                aria-pressed={active}
-                onClick={() => setCategorySlug(cat.slug)}
-                className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border py-1 pl-1.5 pr-3 text-xs font-semibold ${
-                  active
-                    ? cat.activeButtonClass
-                    : "border-lane bg-well text-ink-2 hover:text-ink-strong"
-                }`}
-              >
-                <LaneNumber slug={cat.slug} />
-                {cat.shortLabel}
-                {count ? ` (${count})` : ""}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+        <CategoryFilter
+          label="Filtrar por categoria"
+          slugs={CATEGORY_LIST.map((c) => c.slug)}
+          value={categorySlug || "all"}
+          onChange={(next) => setCategorySlug(next === "all" ? "" : next)}
+          counts={diary?.by_category}
+        />
+      </section>
 
       {error ? (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-600/35 bg-red-50 p-4 text-sm text-red-900"
-        >
-          <span>{error}</span>
-          <button
-            type="button"
-            onClick={() => void loadDiary()}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-red-700 px-3 py-1.5 text-xs font-semibold text-white"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Tentar novamente
-          </button>
-        </div>
-      ) : loading ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="flex items-center gap-3 rounded-xl border border-lane bg-card p-6 text-sm text-ink-2"
-        >
-          <RefreshCw className="h-4 w-4 animate-spin text-accent-text" />
-          <span>Carregando registros do diário...</span>
-        </div>
+        <ErrorState message={error} onRetry={() => void loadDiary()} />
+      ) : loading && !diary ? (
+        <LoadingState label="Carregando registros do diário..." />
       ) : diary && diary.items.length > 0 ? (
-        <div className="space-y-3">
+        <ul
+          className={`card divide-y divide-lane-soft overflow-hidden transition-opacity ${
+            loading ? "opacity-60" : ""
+          }`}
+        >
           {diary.items.map((item) => {
             const meta = CATEGORY_META[item.category_slug];
             const chips = formatMetadataChips(item.category_slug, item.metadata_json);
             const entries = entriesOf(item);
             const multi = entries.length > 1;
             return (
-              <article
-                key={item.id}
-                className="rounded-xl border border-lane bg-card p-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <time dateTime={item.study_date} title={item.study_date}>
-                      {formatStudyDate(item.study_date)}
-                    </time>
-                    {meta && <LaneBadge slug={item.category_slug} />}
-                    {!multi && <span>{entries[0].challenge_title}</span>}
-                  </div>
-                  {multi ? (
-                    <span className="text-xs text-ink-2">
-                      Em <span className="font-score text-sm text-ink-strong">{entries.length}</span>{" "}
-                      desafios
-                    </span>
-                  ) : (
-                    pointsChip(entries[0])
-                  )}
-                </div>
-                <h4 className="mt-2 font-bold text-ink-strong">{item.title}</h4>
-                {item.description && (
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-ink-3">
-                    {item.description}
-                  </p>
-                )}
-                {chips.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {chips.map((chip, idx) => (
-                      <span
-                        key={`${chip}-${idx}`}
-                        className="rounded-md border border-lane bg-well px-2 py-0.5 font-mono text-[11px] font-medium text-ink-3"
+              <li key={item.id} className="px-4 py-4 sm:px-5">
+                <article>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <time
+                        dateTime={item.study_date}
+                        title={item.study_date}
+                        className="font-medium"
                       >
-                        {chip}
+                        {formatStudyDate(item.study_date)}
+                      </time>
+                      <span aria-hidden="true" className="text-ink-faint">
+                        ·
                       </span>
-                    ))}
+                      {meta && <CategoryBadge slug={item.category_slug} />}
+                      <SourceChip source={item.source} />
+                      {!multi && <span className="text-ink-2">{entries[0].challenge_title}</span>}
+                    </div>
+                    {multi ? (
+                      <span className="text-xs text-ink-2">
+                        Em{" "}
+                        <span className="font-score text-sm text-ink-strong">{entries.length}</span>{" "}
+                        desafios
+                      </span>
+                    ) : (
+                      pointsChip(entries[0])
+                    )}
                   </div>
-                )}
-                {multi && (
-                  <ul className="mt-3 divide-y divide-lane-soft rounded-lg border border-lane bg-well text-xs">
-                    {entries.map((entry) => (
-                      <li
-                        key={entry.checkin_id}
-                        className="flex items-center justify-between gap-2 px-3 py-1.5"
-                      >
-                        <span className="min-w-0 truncate text-ink-3">{entry.challenge_title}</span>
-                        {pointsChip(entry)}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </article>
+                  <h3 className="mt-2 font-bold text-ink-strong">{item.title}</h3>
+                  {item.description && (
+                    <p className="mt-1 text-sm whitespace-pre-wrap text-ink-3">
+                      {item.description}
+                    </p>
+                  )}
+                  {chips.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {chips.map((chip, idx) => (
+                        <span
+                          key={`${chip}-${idx}`}
+                          className="rounded-md bg-well px-2 py-0.5 font-mono text-[11px] font-medium text-ink-3 ring-1 ring-lane-soft"
+                        >
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {multi && (
+                    <ul className="mt-3 divide-y divide-lane-soft overflow-hidden rounded-xl bg-well text-xs ring-1 ring-lane-soft">
+                      {entries.map((entry) => (
+                        <li
+                          key={entry.checkin_id}
+                          className="flex items-center justify-between gap-2 px-3 py-1.5"
+                        >
+                          <span className="min-w-0 truncate text-ink-3">
+                            {entry.challenge_title}
+                          </span>
+                          {pointsChip(entry)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </article>
+              </li>
             );
           })}
-        </div>
+        </ul>
       ) : (
-        <div className="rounded-xl border border-dashed border-lane-strong bg-card/60 p-8 text-center text-sm text-ink-2">
-          Nenhum check-in encontrado para esses filtros. Publique um estudo no seu desafio ativo!
-        </div>
+        <EmptyState icon={BookMarked} title="Nenhum estudo encontrado">
+          {hasFilters
+            ? "Nenhum check-in corresponde a esses filtros."
+            : "Publique um estudo no seu desafio ativo e ele aparece aqui."}
+        </EmptyState>
       )}
     </div>
   );

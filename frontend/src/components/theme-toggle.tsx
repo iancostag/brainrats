@@ -7,34 +7,50 @@ type Theme = "light" | "dark";
 
 const STORAGE_KEY = "brainrats_theme";
 
-export function ThemeToggle({ className = "" }: { className?: string }) {
-  const [theme, setTheme] = useState<Theme | null>(null);
+/** Lê e grava o tema atual (data-theme no <html> + localStorage). */
+export function useTheme() {
+  const [theme, setThemeState] = useState<Theme | null>(null);
 
   useEffect(() => {
-    setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+    setThemeState(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
   }, []);
 
-  function toggle() {
-    const next: Theme = theme === "dark" ? "light" : "dark";
+  function setTheme(next: Theme) {
     document.documentElement.dataset.theme = next;
     try {
       window.localStorage.setItem(STORAGE_KEY, next);
     } catch {
       // Armazenamento indisponível: o tema vale só nesta sessão.
     }
-    setTheme(next);
+    setThemeState(next);
   }
 
+  return { theme, setTheme };
+}
+
+export function ThemeToggle({
+  className = "",
+  tone = "light",
+}: {
+  className?: string;
+  /** "dark" para usar sobre superfícies navy. */
+  tone?: "light" | "dark";
+}) {
+  const { theme, setTheme } = useTheme();
   const isDark = theme === "dark";
   const label = isDark ? "Mudar para tema claro" : "Mudar para tema escuro";
 
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={label}
       title={label}
-      className={`inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-700 bg-shell-raised text-slate-200 transition-colors hover:border-slate-500 hover:text-white ${className}`}
+      className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${
+        tone === "dark"
+          ? "border-white/15 bg-white/5 text-slate-200 hover:border-white/30 hover:text-white"
+          : "border-lane bg-card text-ink-2 hover:border-lane-strong hover:text-ink-strong"
+      } ${className}`}
     >
       {isDark ? <Sun className="h-4 w-4" aria-hidden /> : <Moon className="h-4 w-4" aria-hidden />}
     </button>

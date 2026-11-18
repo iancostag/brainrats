@@ -1,38 +1,9 @@
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.api.v1 import integrations as integrations_router
-from app.core.database import Base, get_db
-from app.core.seed import seed_initial_data
-from app.main import create_app
-
-
-@pytest.fixture
-async def mvp_client(tmp_path: Path):
-    db_file = tmp_path / "test_mvp.db"
-    engine = create_async_engine(f"sqlite+aiosqlite:///{db_file}", echo=False)
-    session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    async with session_factory() as session:
-        await seed_initial_data(session)
-
-    app = create_app()
-
-    async def override_get_db():
-        async with session_factory() as session:
-            yield session
-
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as client:
-        yield client
-
-    await engine.dispose()
 
 
 def test_mvp_end_to_end_flow(mvp_client: TestClient) -> None:
@@ -336,9 +307,7 @@ def test_password_auth_diary_dates_and_feed_cursor(mvp_client: TestClient) -> No
         json={"category_slug": "esw", "title": "Revisão DDD"},
     ).json()
 
-    page1 = mvp_client.get(
-        f"/api/v1/challenges/{ch_id}/feed?limit=1", headers=headers
-    ).json()
+    page1 = mvp_client.get(f"/api/v1/challenges/{ch_id}/feed?limit=1", headers=headers).json()
     assert len(page1) == 1
     assert page1[0]["id"] == c2["id"]
 
@@ -350,9 +319,7 @@ def test_password_auth_diary_dates_and_feed_cursor(mvp_client: TestClient) -> No
     assert page2[0]["id"] == c1["id"]
 
     future_day = (datetime.now(UTC) + timedelta(days=2)).date().isoformat()
-    empty_diary = mvp_client.get(
-        f"/api/v1/diary?date_from={future_day}", headers=headers
-    ).json()
+    empty_diary = mvp_client.get(f"/api/v1/diary?date_from={future_day}", headers=headers).json()
     assert empty_diary["total_entries"] == 0
 
     today_day = c1["study_date"]

@@ -13,13 +13,16 @@ export interface CategoryMeta {
   slug: CategorySlug;
   label: string;
   shortLabel: string;
+  /** Ícone fixo da categoria: sempre aparece junto da cor, nunca só a cor. */
   icon: LucideIcon;
-  /** Número fixo da raia (1–5), usado junto da cor para identificar a categoria. */
-  lane: number;
-  /** Fundo sólido da raia + texto contrastante, para o número da raia. */
-  laneClass: string;
-  badgeClass: string;
-  activeButtonClass: string;
+  /** Bloco do ícone (fundo suave + ícone na cor da categoria). */
+  tileClass: string;
+  /** Chip não selecionado: fundo tingido e texto escuro da mesma família. */
+  chipClass: string;
+  /** Chip selecionado: borda e anel na cor da categoria. */
+  chipActiveClass: string;
+  /** Cor sólida para barras de distribuição. */
+  barClass: string;
 }
 
 export const CATEGORY_META: Record<CategorySlug, CategoryMeta> = {
@@ -28,50 +31,51 @@ export const CATEGORY_META: Record<CategorySlug, CategoryMeta> = {
     label: "LeetCode",
     shortLabel: "LeetCode",
     icon: Code2,
-    lane: 1,
-    laneClass: "bg-amber-700 text-amber-50",
-    badgeClass: "border-amber-600/35 bg-amber-50 text-amber-900",
-    activeButtonClass: "border-amber-700 bg-amber-100 text-amber-950",
+    tileClass: "bg-amber-100 text-amber-700",
+    chipClass: "border-amber-700/20 bg-amber-50 text-amber-900",
+    chipActiveClass: "border-amber-700 bg-amber-100 text-amber-950 ring-1 ring-amber-700",
+    barClass: "bg-amber-500",
   },
   project: {
     slug: "project",
     label: "Projeto",
     shortLabel: "Projeto",
     icon: GitBranch,
-    lane: 2,
-    laneClass: "bg-emerald-700 text-emerald-50",
-    badgeClass: "border-emerald-700/35 bg-emerald-50 text-emerald-900",
-    activeButtonClass: "border-emerald-800 bg-emerald-100 text-emerald-950",
+    tileClass: "bg-emerald-100 text-emerald-700",
+    chipClass: "border-emerald-700/20 bg-emerald-50 text-emerald-900",
+    chipActiveClass:
+      "border-emerald-700 bg-emerald-100 text-emerald-950 ring-1 ring-emerald-700",
+    barClass: "bg-emerald-500",
   },
   books: {
     slug: "books",
     label: "Livros",
     shortLabel: "Livros",
     icon: BookOpen,
-    lane: 3,
-    laneClass: "bg-blue-700 text-blue-50",
-    badgeClass: "border-blue-700/35 bg-blue-50 text-blue-900",
-    activeButtonClass: "border-blue-800 bg-blue-100 text-blue-950",
+    tileClass: "bg-blue-100 text-blue-700",
+    chipClass: "border-blue-700/20 bg-blue-50 text-blue-900",
+    chipActiveClass: "border-blue-700 bg-blue-100 text-blue-950 ring-1 ring-blue-700",
+    barClass: "bg-blue-500",
   },
   esw: {
     slug: "esw",
     label: "ESW (Eng. de Software)",
     shortLabel: "ESW",
     icon: Layers,
-    lane: 4,
-    laneClass: "bg-violet-700 text-violet-50",
-    badgeClass: "border-violet-700/35 bg-violet-50 text-violet-900",
-    activeButtonClass: "border-violet-800 bg-violet-100 text-violet-950",
+    tileClass: "bg-violet-100 text-violet-700",
+    chipClass: "border-violet-700/20 bg-violet-50 text-violet-900",
+    chipActiveClass: "border-violet-700 bg-violet-100 text-violet-950 ring-1 ring-violet-700",
+    barClass: "bg-violet-500",
   },
   data: {
     slug: "data",
     label: "Dados",
     shortLabel: "Dados",
     icon: Database,
-    lane: 5,
-    laneClass: "bg-teal-700 text-teal-50",
-    badgeClass: "border-teal-700/35 bg-teal-50 text-teal-900",
-    activeButtonClass: "border-teal-800 bg-teal-100 text-teal-950",
+    tileClass: "bg-teal-100 text-teal-700",
+    chipClass: "border-teal-700/20 bg-teal-50 text-teal-900",
+    chipActiveClass: "border-teal-700 bg-teal-100 text-teal-950 ring-1 ring-teal-700",
+    barClass: "bg-teal-500",
   },
 };
 

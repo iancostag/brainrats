@@ -1,35 +1,33 @@
 ---
-name: BrainRats — Placar de Pista & Treino
-description: Sistema visual para estudos diários de programação em grupo, unindo casca em ardósia profunda e fichas em papel-giz.
+name: BrainRats — Treino Gamificado
+description: Sistema visual para estudos diários de programação em grupo. Casca navy com brilho laranja da marca, área de trabalho creme e cards brancos arredondados.
 colors:
-  shell-slate: "#0F1722"
-  shell-elevated: "#182232"
-  canvas-chalk: "#F3F1EC"
+  shell-navy: "#111827"
+  shell-raised: "#1B2333"
+  canvas-cream: "#FFF5EC"
   card-paper: "#FFFFFF"
-  well-paper: "#FAF9F6"
-  border-lane: "#DDD8CE"
+  well-cream: "#FFFAF5"
+  border-lane: "#ECDCCD"
   ink-primary: "#111827"
-  ink-secondary: "#475569"
-  track-terracotta: "#D94E28"
-  track-terracotta-hover: "#C2411E"
-  lane-cobalt: "#2563EB"
+  ink-secondary: "#4B5563"
+  brand-orange: "#F4511E"
+  accent-orange: "#D23F10"
+  accent-orange-hover: "#B8360C"
+  grape: "#7C3AED"
+  success: "#10B981"
+  gold: "#FBBF24"
 typography:
   display:
     fontFamily: "Archivo, system-ui, sans-serif"
-    fontSize: "2.25rem"
+    fontSize: "2rem"
     fontWeight: 800
-    lineHeight: 1.08
+    lineHeight: 1.15
     letterSpacing: "-0.025em"
   headline:
     fontFamily: "Archivo, system-ui, sans-serif"
-    fontSize: "1.25rem"
-    fontWeight: 700
+    fontSize: "1.125rem"
+    fontWeight: 800
     lineHeight: 1.25
-  title:
-    fontFamily: "Archivo, system-ui, sans-serif"
-    fontSize: "1rem"
-    fontWeight: 700
-    lineHeight: 1.35
   body:
     fontFamily: "Archivo, system-ui, sans-serif"
     fontSize: "0.875rem"
@@ -42,13 +40,12 @@ typography:
     fontVariantNumeric: "tabular-nums"
   label:
     fontFamily: "JetBrains Mono, monospace"
-    fontSize: "0.75rem"
+    fontSize: "0.6875rem"
     fontWeight: 700
-    lineHeight: 1.2
 rounded:
-  sm: "6px"
-  md: "8px"
-  lg: "12px"
+  control: "12px"
+  card: "20px"
+  hero: "24px"
   full: "9999px"
 spacing:
   xs: "4px"
@@ -56,67 +53,39 @@ spacing:
   md: "16px"
   lg: "24px"
   xl: "32px"
-components:
-  button-primary:
-    backgroundColor: "{colors.track-terracotta}"
-    textColor: "{colors.card-paper}"
-    rounded: "{rounded.md}"
-    padding: "10px 20px"
-  button-primary-hover:
-    backgroundColor: "{colors.track-terracotta-hover}"
-  button-dark:
-    backgroundColor: "{colors.shell-slate}"
-    textColor: "{colors.card-paper}"
-    rounded: "{rounded.md}"
-    padding: "10px 20px"
-  card-sheet:
-    backgroundColor: "{colors.card-paper}"
-    textColor: "{colors.ink-primary}"
-    rounded: "{rounded.lg}"
-    padding: "20px"
 ---
-
 ## Overview
+O sistema trata o estudo diário como treino com placar: uma **casca navy** (`#111827`) para navegação, hero do desafio e Placar Oficial, com brilho laranja da marca atrás dos elementos de destaque, e uma **área de trabalho creme** (`#FFF5EC`) com cards brancos arredondados. O mascote é o rato-cérebro do `logo-icon.jpg`, recortado em `public/mascot.png`, e aparece só no hero, no login e na tela de carregamento.
 
-O sistema **Placar de Pista & Treino** trata o estudo diário de programação como treino cronometrado em pista oficial. Projetado para uso misto de dia e de noite (PC e celular), combina uma casca estrutural em ardósia profunda (`#0F1722`) para navegação e **Placar Oficial** com uma área de trabalho antirreflexo em papel-giz (`#F3F1EC`) e cartões nítidos (`#FFFFFF`).
+Tokens e peças compartilhadas vivem em `frontend/src/app/globals.css` (`@theme` + `@layer components`).
 
 ## Colors
-
-- **Casca & Placar Oficial:** `#0F1722` (cabeçalho fixo, barra inferior móvel e painel de ranking) com linhas elevadas em `#182232` e filete de chegada `3px` em terracota (`#D94E28`).
-- **Área de Trabalho:** fundo em papel-giz (`#F3F1EC`), cartões em `#FFFFFF`, campos de entrada em `#FAF9F6` e fios de raia `1px` em `#DDD8CE`.
-- **Acento Principal:** terracota de pista (`#D94E28` / hover `#C2411E`) reservada para CTAs principais, marcação de dias estudados nos **Splits da Semana**, ofensiva e linha do usuário no placar.
-- **Cinco Raias de Categoria:** cada categoria é uma raia numerada com cor própria, e número e cor sempre aparecem juntos (`LaneNumber` / `LaneBadge` em `lane-badge.tsx`): Raia 1 `LeetCode` âmbar, Raia 2 `Projeto` esmeralda, Raia 3 `Livros` cobalto, Raia 4 `ESW` violeta, Raia 5 `Dados` teal. O número fica num bloco sólido `{cor}-700` com texto `{cor}-50`, contraste ≥4.5:1 nos dois temas.
+- **Laranja:** `accent` `#D23F10` leva texto branco (4.7:1) em botões primários e na aba ativa; `accent-bright` `#F4511E` é a cor de marca para brilhos, ícones e foco. `accent-text` `#C2410C` para texto laranja sobre creme.
+- **Gamificação, com moderação:** verde `success` para meta cumprida e "Publicado"; dourado `gold` para troféu, coroa e 1º lugar; roxo `grape` para marcos e descanso.
+- **Categorias:** cada categoria tem ícone fixo e cor própria, e o ícone sempre aparece junto da cor (`CategoryIcon`, `CategoryBadge`, `CategoryFilter` em `lane-badge.tsx`): LeetCode âmbar (`</>`), Projeto esmeralda (branch), Livros azul (livro), ESW violeta (camadas), Dados teal (banco). Selecionado troca o ícone por um check.
+- **Tema escuro:** superfícies e a escala de cores semânticas são invertidas em `[data-theme="dark"]`. Medalhas usam hex fixos para não mudar de cor com o tema.
 
 ## Typography
-
-- **UI e Títulos:** `Archivo` (`--font-sans`) com pesos `400`–`800`, trazendo leitura firme para títulos e formulários sem parecer template SaaS genérico.
-- **Números de Placar:** utilitário `font-score` (Archivo variável, `wdth` 72, peso 800, `tabular-nums`) para pontos, posição no ranking, ofensiva, meta do dia e contagens, como num placar eletrônico de estádio.
-- **Códigos e Metadados:** `JetBrains Mono` (`--font-mono`) para códigos de convite, datas, usernames e chips técnicos.
+- `Archivo` para UI e títulos; `font-score` (Archivo condensada, `tabular-nums`) em todo número comparável: pontos, posição, ofensiva, meta, datas do calendário.
+- `JetBrains Mono` para códigos de convite, usernames, eyebrows e chips de metadados.
 
 ## Layout
-
-- **Desktop:** topbar fixa de linha única (`max-w-6xl`), **Faixa de Splits Semanais** horizontal no topo da aba `Desafio Ativo`, seguida por grade `2:1` (`lg:grid-cols-3`) com compositor + entregas à esquerda e **Placar Oficial** escuro à direita.
-- **Mobile:** cabeçalho compacto (`~61px`) + barra de navegação fixa na base (`bottom nav` de 4 abas com alvos mínimos de `56px` de altura).
-
-## Elevation & Depth
-
-Hierarquia plana baseada em **contraste de casca** (ardósia `#0F1722` vs. papel `#FFFFFF` sobre giz `#F3F1EC`) e bordas `1px solid #DDD8CE`, evitando sombras pesadas ou vidro decorativo.
-
-## Shapes
-
-- Cartões e painéis: `12px` (`rounded-xl`).
-- Inputs, botões e células dos Splits Semanais: `6px`–`8px` (`rounded-md` / `rounded-lg`).
-- Badges de status e pontuação: `9999px` (`rounded-full`).
+- **Desktop (`lg`+):** sidebar navy fixa, como trilho de ícones em `lg` e completa em `xl` (256px), com o card de ofensiva e a semana no rodapé. Topbar discreta só com tema e menu do perfil. Conteúdo até `76rem`.
+- **Início:** hero do desafio na largura toda; abaixo, grade `1fr / 20–22rem` com formulário + feed à esquerda e placar + marcos à direita.
+- **Celular:** barra inferior com 5 abas (Configurações fica no menu do perfil). Ordem: hero, formulário, placar e marcos, feed. Ações do hero e chips de categoria rolam na horizontal.
 
 ## Components
+- **Shell (`app-shell.tsx`):** sidebar, topbar, barra móvel, link "Pular para o conteúdo".
+- **Hero (`challenge-hero.tsx`):** eyebrow + seletor de desafio + modo/fuso/membros; título; mensagem curta derivada do estado real (pendente, estudado, meta cumprida, descanso); blocos "Meta de hoje" (verde e com check quando cumprida) e "Ofensiva atual"; calendário semanal (`week-calendar.tsx`); faixa de ações (convite, descanso, sync, regras). O mascote aparece em `2xl` e, pequeno, no celular.
+- **Registro (`checkin-form.tsx`):** chips de categoria, campo de título com `Ctrl+Enter`, botão Publicar com estados de carregamento e "Publicado", e detalhes opcionais recolhidos por padrão.
+- **Placar (`scoreboard.tsx`):** abas Pontos/Ofensiva/Dias. Até 5 atletas mostra linhas com avatar; acima disso, lista compacta. No Início mostra o top 5 e a linha do usuário. Com um único atleta, mostra o convite. A página Ranking acrescenta o pódio (3+ atletas) e as regras.
+- **Seus marcos (`milestones.tsx`):** ofensiva, dias da semana, estudos válidos e posição, todos vindos do placar. Não há badges desbloqueáveis: o backend não tem esse sistema.
+- **Feed (`group-feed.tsx`, `checkin-card.tsx`, `auto-sync-group-card.tsx`):** um card com divisórias; lotes do GitHub/LeetCode mostram prévia de até 5 itens e "Ver detalhes" abre cada check-in com reações, comentários e menu `⋯`.
+- **Primitivas (`ui.tsx`):** `Avatar`, `Notice`, `ErrorState`, `LoadingState`, `EmptyState`, `PageHeader`. Classes: `.card`, `.card-dark`, `.btn` (+ `-primary`, `-dark`, `-secondary`, `-ghost`, `-shell`, `-sm`), `.field`, `.field-label`, `.segmented`.
 
-- **Faixa de Splits Semanais (`weekly-splits.tsx`):** pista contínua de sete segmentos `Seg–Dom` separados por fios de raia, com marcador `Hoje` sobre o dia atual e o filete de chegada `3px` terracota no fim da semana. Estados: estudado em terracota com ✓, descanso em `rest` com xícara, dia perdido em `lane-soft`, dia futuro em `well`. O segmento de hoje enche da esquerda para a direita conforme a meta do dia (`pontos de hoje / teto diário`, ou 0/1 no Modo Check-in). Acima da pista, a contagem `X/Y dias cumpridos` em `font-score`.
-- **Compositor Rápido (`checkin-form.tsx`):** 5 botões de raia + título + `Publicar` em 1 linha (`Ctrl+Enter`), com métricas, notas livres e link recolhíveis.
-- **Card de Entrega (`checkin-card.tsx`):** mostra autor, data relativa (`hoje`, `ontem`, `seg, 16/11`), raia da categoria, origem (`Manual`, `GitHub Auto`, `LeetCode Auto`), chips de metadados e pontos em `font-score`. O rodapé fica leve: reações sem contagem aparecem só como ícone, o campo de comentário abre pelo botão `Comentar`, e `Editar`, `Denunciar`, `Invalidar` e `Restaurar` ficam no menu `⋯` (`action-menu.tsx`, com Esc, setas e clique fora).
-- **Meta de Hoje (`dashboard.tsx`):** barra de progresso terracota sob o seletor de desafio (`pontos/teto` ou `Pendente/Concluída` no Modo Check-in), com a ofensiva ao lado. Ao publicar, o ganho aparece num selo `+N pts`, o número da meta e o da ofensiva fazem um `stamp` curto e o segmento de hoje nos Splits enche.
-- **Ordem no celular:** compositor, Placar Oficial e depois o feed. As ações do desafio ficam numa faixa única com rolagem horizontal.
+## Motion
+Animações curtas (`rise-in`, `stamp`, `reveal`, `flicker` da chama). `prefers-reduced-motion` zera animações e transições.
 
 ## Do's and Don'ts
-
-- **Faça:** mantenha o `#D94E28` concentrado em ações primárias, splits cumpridos e indicadores de ofensiva; preserve `tabular-nums` em todo placar; use `font-score` em todo número que o usuário compara (pontos, posição, ofensiva) e mostre o número da raia sempre que mostrar a cor de uma categoria.
-- **Não faça:** não volte para fundos `#09090B` genéricos nem esconda metadados preenchidos nos check-ins; não adicione caixas aninhadas sem necessidade funcional.
+- **Faça:** use dados reais ou um estado vazio; mostre ícone + rótulo em toda categoria; mantenha o laranja sólido para a ação principal de cada área.
+- **Não faça:** não simule conquistas com dados fixos; não use gradiente em todo card (só hero, placar e realces pontuais); não aninhe cards com borda dentro de cards com borda.

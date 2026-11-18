@@ -26,54 +26,75 @@
   --color-link: var(--link);
   --color-accent-text: var(--accent-text);
   --color-accent-strong: var(--accent-strong);
+  --color-success-text: var(--success-text);
+
+  --shadow-card: var(--shadow-card-value);
+  --shadow-raised: var(--shadow-raised-value);
 }
 
 @theme {
-  /* Casca em ardósia: escura nos dois temas. */
-  --color-shell: #0f1722;
-  --color-shell-raised: #182232;
-  --color-shell-active: #1f2633;
+  /* Casca navy: sidebar, hero, placar. Escura nos dois temas. */
+  --color-shell: #111827;
+  --color-shell-raised: #1b2333;
+  --color-shell-active: #252f42;
+  --color-shell-line: #2c3649;
 
-  /* Terracota de pista: ações primárias, splits cumpridos, ofensiva. */
-  --color-accent: #d94e28;
-  --color-accent-hover: #c2411e;
+  /*
+   * Laranja BrainRats.
+   * accent (#D23F10) leva texto branco com contraste 4.7:1 (botões, aba ativa).
+   * accent-bright (#F4511E) é a cor de marca para brilhos, ícones e números grandes.
+   */
+  --color-accent: #d23f10;
+  --color-accent-hover: #b8360c;
+  --color-accent-bright: #f4511e;
   --color-accent-soft: #ff8a65;
+
+  /* Gamificação: roxo para marcos, verde para meta cumprida, dourado para troféus. */
+  --color-grape: #7c3aed;
+  --color-grape-soft: #a78bfa;
+  --color-success: #10b981;
+  --color-gold: #fbbf24;
+
+  --radius-card: 1.25rem;
 }
 
 :root {
   color-scheme: light;
-  --surface-canvas: #f3f1ec;
+  --surface-canvas: #fff5ec;
   --surface-card: #ffffff;
-  --surface-well: #faf9f6;
-  --border-lane: #ddd8ce;
-  --border-lane-soft: #ebe7df;
-  --border-lane-strong: #c7c0b3;
+  --surface-well: #fffaf5;
+  --border-lane: #ecdccd;
+  --border-lane-soft: #f4e8dc;
+  --border-lane-strong: #d9c4b0;
   --ink-primary: #111827;
-  --ink-strong: #0f1722;
-  --ink-label: #1e293b;
-  --ink-3: #334155;
-  --ink-secondary: #475569;
-  --ink-muted: #64748b;
-  --ink-faint: #94a3b8;
-  --action: #0f1722;
-  --action-hover: #1e293b;
-  --rest: #e2e8f0;
+  --ink-strong: #111827;
+  --ink-label: #1f2937;
+  --ink-3: #374151;
+  --ink-secondary: #4b5563;
+  --ink-muted: #6b6560;
+  --ink-faint: #a8a29e;
+  --action: #111827;
+  --action-hover: #1f2937;
+  --rest: #e7e5e4;
   --link: #2563eb;
-  --accent-text: #d94e28;
-  --accent-strong: #b83d1b;
-  --scrollbar-track: #ebe7df;
-  --scrollbar-thumb: #bdb5a7;
-  --scrollbar-thumb-hover: #948c7e;
+  --accent-text: #c2410c;
+  --accent-strong: #a8360a;
+  --success-text: #047857;
+  --shadow-card-value: 0 1px 2px rgb(17 24 39 / 0.04), 0 8px 24px -14px rgb(120 53 15 / 0.18);
+  --shadow-raised-value: 0 12px 32px -12px rgb(17 24 39 / 0.28);
+  --scrollbar-track: #f4e8dc;
+  --scrollbar-thumb: #d9c4b0;
+  --scrollbar-thumb-hover: #b9a28c;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --surface-canvas: #0b1119;
-  --surface-card: #131c29;
-  --surface-well: #1a2535;
-  --border-lane: #2b384c;
-  --border-lane-soft: #223044;
-  --border-lane-strong: #3b4a62;
+  --surface-canvas: #0b1018;
+  --surface-card: #141b27;
+  --surface-well: #1a2332;
+  --border-lane: #2a3547;
+  --border-lane-soft: #212b3b;
+  --border-lane-strong: #3a4760;
   --ink-primary: #e7eaf0;
   --ink-strong: #f3f4f7;
   --ink-label: #d5dbe6;
@@ -87,6 +108,9 @@
   --link: #7aa7ff;
   --accent-text: #ff8a65;
   --accent-strong: #ff9a7a;
+  --success-text: #34d399;
+  --shadow-card-value: 0 0 0 0 transparent;
+  --shadow-raised-value: 0 12px 32px -12px rgb(0 0 0 / 0.6);
   --scrollbar-track: #0f1722;
   --scrollbar-thumb: #3b4a62;
   --scrollbar-thumb-hover: #52627d;
@@ -148,25 +172,86 @@
   }
 }
 
+/*
+ * Design system BrainRats: peças reutilizadas em todas as telas.
+ * Ficam na camada components para que utilitários pontuais ainda possam sobrescrever.
+ */
+@layer components {
+  .card {
+    @apply rounded-[var(--radius-card)] border border-lane-soft bg-card shadow-card;
+  }
+
+  .card-dark {
+    @apply rounded-[var(--radius-card)] bg-shell text-white ring-1 ring-white/5;
+  }
+
+  .eyebrow {
+    @apply font-mono text-[11px] font-bold tracking-wider text-ink-2 uppercase;
+  }
+
+  .section-title {
+    @apply flex items-center gap-2 text-base font-extrabold tracking-tight text-ink-strong;
+  }
+
+  .btn {
+    @apply inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold whitespace-nowrap transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn:not(:disabled):active {
+    transform: scale(0.98);
+  }
+
+  .btn-sm {
+    @apply min-h-9 gap-1.5 rounded-lg px-3 text-xs;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-white shadow-[0_8px_18px_-8px_rgb(210_63_16/0.6)] hover:bg-accent-hover;
+  }
+
+  .btn-dark {
+    @apply bg-action text-white hover:bg-action-hover;
+  }
+
+  .btn-secondary {
+    @apply border border-lane bg-card text-ink-strong hover:border-lane-strong hover:bg-well;
+  }
+
+  .btn-ghost {
+    @apply text-ink-2 hover:bg-well hover:text-ink-strong;
+  }
+
+  /* Botões sobre superfícies navy (hero, placar, sidebar). */
+  .btn-shell {
+    @apply border border-white/10 bg-white/5 text-slate-100 hover:border-white/25 hover:bg-white/10;
+  }
+
+  .field {
+    @apply min-h-11 w-full rounded-xl border border-lane bg-well px-3.5 py-2 text-sm text-ink-strong transition-colors placeholder:text-ink-muted hover:border-lane-strong focus:border-accent-bright focus:bg-card disabled:opacity-60;
+  }
+
+  .field-label {
+    @apply flex flex-col gap-1.5 text-xs font-semibold text-ink-3;
+  }
+
+  /* Controle segmentado (Pontos / Ofensiva / Dias, Entrar / Criar conta...). */
+  .segmented {
+    @apply grid gap-1 rounded-xl p-1;
+  }
+
+  .segmented-item {
+    @apply min-h-9 rounded-lg px-3 text-xs font-bold transition-colors;
+  }
+}
+
 body {
   background-color: var(--surface-canvas);
   color: var(--ink-primary);
   caret-color: var(--color-accent);
 }
 
-/* Movimento reduzido: mantém a mudança de estado, remove deslocamento e giro. */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-  }
-}
-
 ::selection {
-  background-color: rgba(217, 78, 40, 0.25);
+  background-color: rgba(244, 81, 30, 0.25);
   color: inherit;
 }
 
@@ -198,8 +283,14 @@ input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 summary:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-accent-bright);
   outline-offset: 2px;
+}
+
+/* Campos já trocam a borda no foco; o contorno vira um halo colado à borda. */
+.field:focus-visible {
+  outline: 3px solid rgb(244 81 30 / 0.28);
+  outline-offset: 0;
 }
 
 /* Entrada de cartões e feedback de publicação: um único gesto, curva exponencial. */
@@ -228,12 +319,44 @@ summary:focus-visible {
   }
 }
 
+/* Chama da ofensiva: oscilação curta para indicar que ela está viva. */
+@keyframes flicker {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.08) rotate(-3deg);
+  }
+}
+
+/* Detalhes recolhíveis: abre de cima para baixo sem animar altura. */
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .animate-rise-in {
   animation: rise-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .animate-stamp {
   animation: stamp 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-flicker {
+  animation: flicker 1.8s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+
+.animate-reveal {
+  animation: reveal 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 /* Esqueleto de carregamento. */
@@ -255,16 +378,30 @@ summary:focus-visible {
   );
   background-size: 200% 100%;
   animation: shimmer 1.4s linear infinite;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
 }
 
+/* Movimento reduzido: mantém a mudança de estado, remove deslocamento, giro e oscilação. */
 @media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .btn:not(:disabled):active {
+    transform: none;
+  }
+
   .skeleton {
     animation: none;
   }
 }
 
-/* Faixas de ações com rolagem horizontal no celular: a borda cortada já indica que há mais. */
+/* Faixas com rolagem horizontal no celular: a borda cortada já indica que há mais. */
 .no-scrollbar {
   scrollbar-width: none;
 }

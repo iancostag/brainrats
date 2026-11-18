@@ -1,6 +1,17 @@
 "use client";
 
-import { ArrowRight, Check, Code2, FolderGit2, Github, Lock, RefreshCw, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  CircleDashed,
+  Code2,
+  FolderGit2,
+  Github,
+  Lock,
+  Plug,
+  RefreshCw,
+  Sparkles,
+} from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 
 import {
@@ -12,10 +23,12 @@ import {
   updateProfile,
   type ChallengeListItem,
   type GitHubRepoItem,
+  type Integration,
   type SyncResponse,
   type User,
 } from "@/lib/api";
 import { formatDateTimeBr } from "@/lib/categories";
+import { Notice, PageHeader } from "@/components/ui";
 
 // Ferramentas de teste (simulação de sync, avisos de configuração) só aparecem no `next dev`.
 const IS_DEV = process.env.NODE_ENV === "development";
@@ -39,8 +52,6 @@ export function IntegrationsTab({
   const lcIntegration = user.integrations.find((i) => i.provider === "leetcode");
   const memberChallenges = challenges.filter((c) => c.is_member);
 
-  const [displayName, setDisplayName] = useState(user.display_name);
-  const [bio, setBio] = useState(user.bio ?? "");
   const [githubUsername, setGithubUsername] = useState(
     ghIntegration?.external_username ?? "",
   );
@@ -112,8 +123,6 @@ export function IntegrationsTab({
 
   async function persistSettings() {
     const updated = await updateProfile({
-      display_name: displayName.trim() || undefined,
-      bio,
       github_username: githubUsername.trim() || undefined,
       leetcode_username: leetcodeUsername.trim() || undefined,
       target_challenge_id: targetChallengeId || null,
@@ -129,7 +138,7 @@ export function IntegrationsTab({
     setSaving(true);
     try {
       await persistSettings();
-      setMessage("Integrações e perfil atualizados!");
+      setMessage("Contas atualizadas!");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao salvar.");
     } finally {
@@ -158,276 +167,290 @@ export function IntegrationsTab({
     }
   }
 
+  const lastSynced = [ghIntegration?.last_synced_at, lcIntegration?.last_synced_at]
+    .filter((v): v is string => Boolean(v))
+    .sort()
+    .at(-1);
+
   return (
-    <div className="grid gap-8 lg:grid-cols-2">
-      <form
-        onSubmit={handleSave}
-        className="flex flex-col gap-4 rounded-xl border border-lane bg-card p-5"
-      >
-        <h3 className="font-bold text-ink-strong">Perfil e Contas Vinculadas</h3>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        icon={Plug}
+        title="Integrações"
+        description="Conecte GitHub e LeetCode para publicar check-ins automaticamente."
+      />
 
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-ink-label">Nome de exibição</span>
-          <input
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong"
-          />
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-ink-label">Bio</span>
-          <textarea
-            rows={2}
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="Fale sobre seus objetivos de estudo..."
-            className="rounded-lg border border-lane bg-well px-3 py-2 text-sm text-ink-strong placeholder:text-ink-muted"
-          />
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="flex items-center justify-between gap-2 font-medium text-ink-label">
-            <span className="flex items-center gap-1.5">
-              <Github className="h-4 w-4" /> GitHub Username (eventos públicos)
-            </span>
-            <span className="font-mono text-[11px] text-ink-muted">
-              {formatDateTimeBr(ghIntegration?.last_synced_at ?? null)}
-            </span>
-          </span>
-          <input
-            type="text"
-            value={githubUsername}
-            onChange={(e) => setGithubUsername(e.target.value)}
-            placeholder="ex: iancostag"
-            className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong"
-          />
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="flex items-center justify-between gap-2 font-medium text-ink-label">
-            <span className="flex items-center gap-1.5">
-              <Code2 className="h-4 w-4" /> LeetCode Username (Accepted)
-            </span>
-            <span className="font-mono text-[11px] text-ink-muted">
-              {formatDateTimeBr(lcIntegration?.last_synced_at ?? null)}
-            </span>
-          </span>
-          <input
-            type="text"
-            value={leetcodeUsername}
-            onChange={(e) => setLeetcodeUsername(e.target.value)}
-            placeholder="ex: seu_usuario_lc"
-            className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong"
-          />
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-ink-label">
-            Desafio alvo da publicação automática
-          </span>
-          <select
-            value={targetChallengeId}
-            disabled={memberChallenges.length === 0}
-            onChange={(e) => setTargetChallengeId(e.target.value)}
-            className="min-h-11 rounded-lg border border-lane bg-well px-3 py-2 text-ink-strong disabled:opacity-60"
-          >
-            {memberChallenges.length === 0 ? (
-              <option value="">Entre em um desafio primeiro</option>
-            ) : (
-              memberChallenges.map((ch) => (
-                <option key={ch.id} value={ch.id}>
-                  {ch.title}
-                </option>
-              ))
-            )}
-          </select>
-        </label>
-
-        {message && (
-          <p
-            role="status"
-            aria-live="polite"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800"
-          >
-            <Check className="h-3.5 w-3.5 shrink-0" />
-            <span>{message}</span>
-          </p>
-        )}
-        {error && (
-          <p
-            role="alert"
-            className="rounded-lg border border-red-600/35 bg-red-50 px-3 py-2 text-xs font-medium text-red-900"
-          >
-            {error}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={saving}
-          className="min-h-11 w-fit rounded-lg bg-action px-4 py-2 text-sm font-bold text-white hover:bg-action-hover disabled:opacity-50"
+      <div className="grid gap-6 lg:grid-cols-2">
+        <form
+          onSubmit={handleSave}
+          aria-labelledby="accounts-title"
+          className="card flex flex-col gap-4 p-5"
         >
-          {saving ? "Salvando..." : "Salvar Configurações"}
-        </button>
-      </form>
+          <h2 id="accounts-title" className="section-title">
+            Contas vinculadas
+          </h2>
 
-      <div className="flex flex-col gap-6">
-        <section className="flex flex-col gap-4 rounded-xl border border-lane bg-card p-5">
-          <h3 className="font-bold text-ink-strong">Sincronização Automática</h3>
-          <p className="text-sm leading-relaxed text-ink-2">
-            Importa apenas commits e submissões{" "}
-            <code className="rounded bg-well px-1 py-0.5 font-mono text-xs text-ink-strong">
-              Accepted
-            </code>{" "}
-            feitos <strong>hoje</strong> no fuso do desafio (com deduplicação por evento). Depois
-            você pode editar título e notas direto no feed.
-          </p>
+          <label className="field-label">
+            <span className="flex flex-wrap items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink-label">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-shell text-white">
+                  <Github className="h-4 w-4" aria-hidden="true" />
+                </span>
+                GitHub (eventos públicos)
+              </span>
+              <IntegrationStatus integration={ghIntegration} />
+            </span>
+            <input
+              type="text"
+              value={githubUsername}
+              onChange={(e) => setGithubUsername(e.target.value)}
+              placeholder="Ex.: iancostag"
+              className="field"
+            />
+          </label>
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              disabled={syncing}
-              onClick={() => void handleSync(false)}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-white hover:bg-accent-hover disabled:opacity-50"
+          <label className="field-label">
+            <span className="flex flex-wrap items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink-label">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700">
+                  <Code2 className="h-4 w-4" aria-hidden="true" />
+                </span>
+                LeetCode (Accepted)
+              </span>
+              <IntegrationStatus integration={lcIntegration} />
+            </span>
+            <input
+              type="text"
+              value={leetcodeUsername}
+              onChange={(e) => setLeetcodeUsername(e.target.value)}
+              placeholder="Ex.: seu_usuario_lc"
+              className="field"
+            />
+          </label>
+
+          <label className="field-label">
+            Desafio alvo da publicação automática
+            <select
+              value={targetChallengeId}
+              disabled={memberChallenges.length === 0}
+              onChange={(e) => setTargetChallengeId(e.target.value)}
+              className="field"
             >
-              <RefreshCw className={`h-4 w-4 ${syncMode === "real" ? "animate-spin" : ""}`} />
-              {syncMode === "real" ? "Sincronizando..." : "Sincronizar GitHub & LeetCode Agora"}
-            </button>
+              {memberChallenges.length === 0 ? (
+                <option value="">Entre em um desafio primeiro</option>
+              ) : (
+                memberChallenges.map((ch) => (
+                  <option key={ch.id} value={ch.id}>
+                    {ch.title}
+                  </option>
+                ))
+              )}
+            </select>
+          </label>
 
-            {IS_DEV && (
-            <button
-              type="button"
-              disabled={syncing}
-              onClick={() => void handleSync(true)}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-lane bg-well px-4 py-2.5 text-sm font-semibold text-ink-strong hover:border-ink-strong disabled:opacity-50"
-            >
-              <Sparkles className="h-4 w-4 text-accent-text" />
-              {syncMode === "simulate" ? "Simulando..." : "Simular check-in automático (dev)"}
-            </button>
-            )}
-          </div>
+          {message && (
+            <Notice tone="success" onDismiss={() => setMessage(null)}>
+              {message}
+            </Notice>
+          )}
+          {error && (
+            <Notice tone="error" onDismiss={() => setError(null)}>
+              {error}
+            </Notice>
+          )}
 
-          {syncResult && (
+          <button type="submit" disabled={saving} className="btn btn-dark w-fit">
+            {saving ? "Salvando..." : "Salvar contas"}
+          </button>
+        </form>
+
+        <div className="flex flex-col gap-6">
+          <section
+            aria-labelledby="sync-title"
+            className="card-dark relative flex flex-col gap-4 overflow-hidden p-5"
+          >
             <div
-              role="status"
-              aria-live="polite"
-              className="flex flex-col gap-3 rounded-lg border border-lane bg-well p-4 text-xs text-ink-3"
-            >
-              <p className="font-bold text-ink-strong">
-                {syncResult.created_count} check-in(s) publicado(s) ·{" "}
-                {syncResult.skipped_duplicates} duplicado(s) ignorado(s)
-              </p>
-              <ul className="list-disc space-y-1 pl-4 text-ink-2">
-                {syncResult.details.map((line, i) => (
-                  <li key={i}>{line}</li>
-                ))}
-              </ul>
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-12 -bottom-16 h-44 w-44 rounded-full bg-accent-bright/20 blur-3xl"
+            />
+            <div className="relative flex items-start justify-between gap-3">
+              <h2 id="sync-title" className="flex items-center gap-2 text-base font-extrabold">
+                <RefreshCw className="h-5 w-5 text-accent-bright" aria-hidden="true" />
+                Sincronização automática
+              </h2>
+              <span className="shrink-0 font-mono text-[11px] text-slate-400">
+                Última: {formatDateTimeBr(lastSynced ?? null)}
+              </span>
+            </div>
+            <p className="relative text-sm leading-relaxed text-slate-300">
+              Importa apenas commits e submissões{" "}
+              <code className="rounded bg-white/10 px-1 py-0.5 font-mono text-xs text-white">
+                Accepted
+              </code>{" "}
+              feitos <strong className="text-white">hoje</strong> no fuso do desafio, com
+              deduplicação por evento. Depois você pode editar título e notas direto no feed.
+            </p>
+
+            <div className="relative flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={onGoToActive}
-                className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg bg-action px-3 py-1.5 font-semibold text-white hover:bg-action-hover"
+                disabled={syncing}
+                onClick={() => void handleSync(false)}
+                className="btn btn-primary"
               >
-                Ver no feed do desafio <ArrowRight className="h-3.5 w-3.5" />
+                <RefreshCw
+                  className={`h-4 w-4 ${syncMode === "real" ? "animate-spin" : ""}`}
+                  aria-hidden="true"
+                />
+                {syncMode === "real" ? "Sincronizando..." : "Sincronizar agora"}
               </button>
-            </div>
-          )}
-        </section>
 
-        {(user.has_github_oauth || githubOAuthEnabled || IS_DEV) && (
-        <section className="flex flex-col gap-3 rounded-xl border border-lane bg-card p-5">
-          <h3 className="flex items-center gap-2 font-bold text-ink-strong">
-            <FolderGit2 className="h-4 w-4 text-accent-text" />
-            Repositórios Monitorados (GitHub OAuth)
-          </h3>
-
-          {user.has_github_oauth ? (
-            <>
-              <p className="text-xs text-ink-2">
-                Selecione quais repositórios (inclusive privados) devem gerar check-ins de
-                Continuidade de Projeto ao sincronizar.
-              </p>
-              <div className="flex flex-wrap gap-2">
+              {IS_DEV && (
                 <button
                   type="button"
-                  disabled={loadingRepos}
-                  onClick={() => void handleLoadRepos()}
-                  className="min-h-10 rounded-lg border border-lane bg-well px-3 py-1.5 text-xs font-semibold text-ink-strong hover:border-ink-strong"
+                  disabled={syncing}
+                  onClick={() => void handleSync(true)}
+                  className="btn btn-shell"
                 >
-                  {loadingRepos ? "Carregando..." : "Carregar meus repositórios"}
+                  <Sparkles className="h-4 w-4 text-accent-soft" aria-hidden="true" />
+                  {syncMode === "simulate" ? "Simulando..." : "Simular check-in (dev)"}
                 </button>
-                {repos.length > 0 && (
-                  <button
-                    type="button"
-                    disabled={savingRepos}
-                    onClick={() => void handleSaveRepos()}
-                    className="min-h-10 rounded-lg bg-action px-3 py-1.5 text-xs font-semibold text-white"
-                  >
-                    {savingRepos ? "Salvando..." : "Salvar seleção"}
-                  </button>
-                )}
-              </div>
-
-              {repos.length > 0 && (
-                <div className="max-h-56 space-y-1.5 overflow-y-auto rounded-lg border border-lane bg-well p-2.5">
-                  {repos.map((repo, idx) => (
-                    <label
-                      key={repo.github_repo_id}
-                      className="flex min-h-8 items-center justify-between gap-2 rounded px-2 py-1 text-xs hover:bg-card"
-                    >
-                      <span className="flex items-center gap-2 font-mono text-ink-strong">
-                        <input
-                          type="checkbox"
-                          checked={repo.is_monitored}
-                          onChange={(e) => {
-                            const next = [...repos];
-                            next[idx] = { ...repo, is_monitored: e.target.checked };
-                            setRepos(next);
-                          }}
-                          className="h-4 w-4 accent-accent"
-                        />
-                        {repo.full_name}
-                      </span>
-                      {repo.private && (
-                        <span className="inline-flex items-center gap-1 rounded bg-slate-200 px-1.5 py-0.5 text-[10px] text-ink-3">
-                          <Lock className="h-2.5 w-2.5" /> privado
-                        </span>
-                      )}
-                    </label>
-                  ))}
-                </div>
               )}
-              {repoMessage && (
-                <p role="status" className="text-xs font-semibold text-emerald-800">
-                  {repoMessage}
+            </div>
+
+            {syncResult && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="animate-rise-in relative flex flex-col gap-3 rounded-xl bg-white/5 p-4 text-xs text-slate-300 ring-1 ring-white/10"
+              >
+                <p className="flex items-center gap-2 text-sm font-bold text-white">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-300" aria-hidden="true" />
+                  {syncResult.created_count} check-in(s) publicado(s) ·{" "}
+                  {syncResult.skipped_duplicates} duplicado(s) ignorado(s)
+                </p>
+                {syncResult.details.length > 0 && (
+                  <ul className="list-disc space-y-1 pl-4">
+                    {syncResult.details.map((line, i) => (
+                      <li key={i}>{line}</li>
+                    ))}
+                  </ul>
+                )}
+                <button type="button" onClick={onGoToActive} className="btn btn-sm btn-shell w-fit">
+                  Ver no feed do desafio <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              </div>
+            )}
+          </section>
+
+          {(user.has_github_oauth || githubOAuthEnabled || IS_DEV) && (
+            <section aria-labelledby="repos-title" className="card flex flex-col gap-3 p-5">
+              <h2 id="repos-title" className="section-title">
+                <FolderGit2 className="h-5 w-5 text-accent-text" aria-hidden="true" />
+                Repositórios monitorados (GitHub OAuth)
+              </h2>
+
+              {user.has_github_oauth ? (
+                <>
+                  <p className="text-xs text-ink-2">
+                    Selecione quais repositórios (inclusive privados) devem gerar check-ins de
+                    Continuidade de Projeto ao sincronizar.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={loadingRepos}
+                      onClick={() => void handleLoadRepos()}
+                      className="btn btn-sm btn-secondary"
+                    >
+                      {loadingRepos ? "Carregando..." : "Carregar meus repositórios"}
+                    </button>
+                    {repos.length > 0 && (
+                      <button
+                        type="button"
+                        disabled={savingRepos}
+                        onClick={() => void handleSaveRepos()}
+                        className="btn btn-sm btn-dark"
+                      >
+                        {savingRepos ? "Salvando..." : "Salvar seleção"}
+                      </button>
+                    )}
+                  </div>
+
+                  {repos.length > 0 && (
+                    <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl bg-well p-2 ring-1 ring-lane-soft">
+                      {repos.map((repo, idx) => (
+                        <label
+                          key={repo.github_repo_id}
+                          className="flex min-h-9 items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs hover:bg-card"
+                        >
+                          <span className="flex min-w-0 items-center gap-2 font-mono text-ink-strong">
+                            <input
+                              type="checkbox"
+                              checked={repo.is_monitored}
+                              onChange={(e) => {
+                                const next = [...repos];
+                                next[idx] = { ...repo, is_monitored: e.target.checked };
+                                setRepos(next);
+                              }}
+                              className="h-4 w-4 shrink-0 accent-accent"
+                            />
+                            <span className="truncate">{repo.full_name}</span>
+                          </span>
+                          {repo.private && (
+                            <span className="inline-flex shrink-0 items-center gap-1 rounded bg-rest px-1.5 py-0.5 text-[10px] text-ink-3">
+                              <Lock className="h-2.5 w-2.5" aria-hidden="true" /> privado
+                            </span>
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {repoMessage && (
+                    <Notice tone="success" onDismiss={() => setRepoMessage(null)}>
+                      {repoMessage}
+                    </Notice>
+                  )}
+                </>
+              ) : githubOAuthEnabled ? (
+                <div className="flex flex-col gap-2 text-xs text-ink-2">
+                  <p>
+                    Conecte sua conta via GitHub OAuth para escolher repositórios específicos
+                    (públicos ou privados) no monitoramento.
+                  </p>
+                  <a href={getGithubOAuthUrl()} className="btn btn-sm btn-dark w-fit">
+                    <Github className="h-4 w-4" aria-hidden="true" /> Conectar via GitHub OAuth
+                  </a>
+                </div>
+              ) : (
+                <p className="text-xs text-ink-2">
+                  Configure <code className="font-mono">GITHUB_CLIENT_ID</code> e{" "}
+                  <code className="font-mono">GITHUB_CLIENT_SECRET</code> no backend para liberar
+                  login OAuth e seleção de repositórios privados. Este aviso só aparece em
+                  desenvolvimento.
                 </p>
               )}
-            </>
-          ) : githubOAuthEnabled ? (
-            <div className="flex flex-col gap-2 text-xs text-ink-2">
-              <p>
-                Conecte sua conta via GitHub OAuth para escolher repositórios específicos
-                (públicos ou privados) no monitoramento.
-              </p>
-              <a
-                href={getGithubOAuthUrl()}
-                className="inline-flex min-h-10 w-fit items-center gap-2 rounded-lg bg-action px-3 py-2 font-semibold text-white"
-              >
-                <Github className="h-4 w-4" /> Conectar via GitHub OAuth
-              </a>
-            </div>
-          ) : (
-            <p className="text-xs text-ink-2">
-              Configure <code className="font-mono">GITHUB_CLIENT_ID</code> e{" "}
-              <code className="font-mono">GITHUB_CLIENT_SECRET</code> no backend para liberar
-              login OAuth e seleção de repositórios privados. Este aviso só aparece em
-              desenvolvimento.
-            </p>
+            </section>
           )}
-        </section>
-        )}
+        </div>
       </div>
     </div>
+  );
+}
+
+/** Estado da conta: conectada (com data do último sync) ou não conectada. */
+function IntegrationStatus({ integration }: { integration: Integration | undefined }) {
+  if (!integration) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-well px-2 py-0.5 text-[11px] font-medium text-ink-2 ring-1 ring-lane-soft">
+        <CircleDashed className="h-3 w-3" aria-hidden="true" /> Não conectado
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-900 ring-1 ring-emerald-700/20">
+      <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+      Conectado · {formatDateTimeBr(integration.last_synced_at)}
+    </span>
   );
 }
