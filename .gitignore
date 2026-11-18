@@ -19,6 +19,11 @@ npm-debug.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Test coverage
+.coverage
+htmlcov/
+coverage/
+
 # Env & Secrets
 .env
 .env.local
