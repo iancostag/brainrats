@@ -52,7 +52,7 @@ export function SettingsTab({ user, onUserUpdated, onLogout }: SettingsTabProps)
             Perfil
           </h2>
 
-          <div className="flex items-center gap-3 rounded-2xl bg-well p-3">
+          <div className="flex items-center gap-3 rounded-2xl border border-lane bg-well p-3">
             <Avatar name={user.display_name} src={user.avatar_url} size="lg" />
             <div className="min-w-0">
               <p className="truncate font-bold text-ink-strong">{user.display_name}</p>

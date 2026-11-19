@@ -25,25 +25,25 @@ function srLabel(day: WeekDay, status: DayStatus, progress: number): string {
 }
 
 const CELL_STYLES: Record<DayStatus, string> = {
-  studied: "border-emerald-700/25 bg-emerald-50 text-emerald-900",
-  rest: "border-transparent bg-rest text-ink-strong",
-  today: "border-accent bg-accent text-white shadow-[0_8px_18px_-8px_rgb(210_63_16/0.7)]",
-  missed: "border-transparent bg-well text-ink-muted",
-  upcoming: "border-lane-soft bg-transparent text-ink-2",
+  studied: "border-transparent bg-accent text-white shadow-sm",
+  rest: "border-transparent bg-white/10 text-slate-200",
+  today: "border-accent-bright/80 bg-white/5 text-white ring-2 ring-accent-bright/30",
+  missed: "border-transparent bg-white/[0.04] text-slate-500",
+  upcoming: "border-dashed border-white/15 bg-transparent text-slate-400",
 };
 
 /** Calendário da semana no hero: Seg–Dom com data, estado do dia e contagem de dias cumpridos. */
 export function WeekCalendar({ days, summary, todayProgress }: WeekProps) {
   const progress = Math.max(0, Math.min(1, todayProgress));
   return (
-    <div className="rounded-2xl bg-card p-3.5 text-ink shadow-raised sm:p-4">
+    <div className="rounded-2xl bg-shell-raised/85 p-3.5 text-white ring-1 ring-white/10 shadow-raised sm:p-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 text-sm font-bold text-ink-strong">
-          <CalendarDays className="h-4 w-4 text-accent-text" aria-hidden="true" />
+        <span className="inline-flex items-center gap-1.5 text-sm font-bold text-white">
+          <CalendarDays className="h-4 w-4 text-accent-soft" aria-hidden="true" />
           Sua semana
         </span>
-        <span className="text-xs font-medium text-ink-2">
-          <span className="font-score text-base text-ink-strong">
+        <span className="text-xs font-medium text-slate-300">
+          <span className="font-score text-base text-white">
             {summary.completed}/{summary.elapsed}
           </span>{" "}
           dias cumpridos
@@ -53,19 +53,20 @@ export function WeekCalendar({ days, summary, todayProgress }: WeekProps) {
       <ol aria-label="Dias da semana" className="mt-3 grid grid-cols-7 gap-1 sm:gap-1.5">
         {days.map((day, idx) => {
           const status = summary.statuses[idx];
-          const todayDone = day.isToday && status === "studied";
           return (
             <li
               key={day.iso}
               aria-current={day.isToday ? "date" : undefined}
               className={`relative flex flex-col items-center gap-0.5 overflow-hidden rounded-xl border px-0.5 pt-1.5 pb-1 transition-colors ${
                 CELL_STYLES[status]
-              } ${todayDone ? "ring-2 ring-accent-bright ring-offset-1 ring-offset-card" : ""}`}
+              }`}
             >
               <span className="sr-only">{srLabel(day, status, progress)}</span>
               <span
                 aria-hidden="true"
-                className={`text-[11px] font-semibold ${status === "today" ? "" : "opacity-80"}`}
+                className={`text-[11px] font-semibold ${
+                  status === "today" ? "text-accent-soft" : "opacity-80"
+                }`}
               >
                 {day.label}
               </span>
@@ -78,9 +79,9 @@ export function WeekCalendar({ days, summary, todayProgress }: WeekProps) {
                 {status === "missed" && <Minus className="h-3.5 w-3.5 opacity-60" />}
               </span>
               {status === "today" && (
-                <span aria-hidden="true" className="absolute inset-x-1.5 bottom-1 h-1 rounded-full bg-white/30">
+                <span aria-hidden="true" className="absolute inset-x-1.5 bottom-1 h-1 rounded-full bg-white/20">
                   <span
-                    className="block h-full rounded-full bg-white transition-[width] duration-700 ease-out"
+                    className="block h-full rounded-full bg-accent-bright transition-[width] duration-700 ease-out"
                     style={{ width: `${progress * 100}%` }}
                   />
                 </span>
@@ -94,9 +95,9 @@ export function WeekCalendar({ days, summary, todayProgress }: WeekProps) {
 }
 
 const STRIP_STYLES: Record<DayStatus, string> = {
-  studied: "bg-success",
+  studied: "bg-accent",
   rest: "bg-slate-500",
-  today: "bg-accent-bright/25 ring-1 ring-accent-bright",
+  today: "bg-accent-bright/20 ring-1 ring-accent-bright/70",
   missed: "bg-white/10",
   upcoming: "border border-dashed border-white/15",
 };

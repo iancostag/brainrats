@@ -420,7 +420,7 @@ export function CheckinCard({
       )}
 
       {checkin.comments.length > 0 && (
-        <ul className="space-y-1.5 rounded-xl bg-well px-3 py-2.5 sm:ml-[3.25rem]">
+        <ul className="space-y-1.5 rounded-xl border border-lane bg-well px-3 py-2.5 sm:ml-[3.25rem]">
           {checkin.comments.map((cm) => (
             <li key={cm.id} className="text-xs text-ink-3">
               <span className="font-semibold text-ink-strong">{cm.display_name}</span>{" "}
