@@ -267,27 +267,23 @@ export function IntegrationsTab({
         <div className="flex flex-col gap-6">
           <section
             aria-labelledby="sync-title"
-            className="card-dark relative flex flex-col gap-4 overflow-hidden p-5"
+            className="card relative flex flex-col gap-4 overflow-hidden p-5"
           >
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -right-12 -bottom-16 h-44 w-44 rounded-full bg-accent-bright/20 blur-3xl"
-            />
             <div className="relative flex items-start justify-between gap-3">
-              <h2 id="sync-title" className="flex items-center gap-2 text-base font-extrabold">
-                <RefreshCw className="h-5 w-5 text-accent-bright" aria-hidden="true" />
+              <h2 id="sync-title" className="section-title">
+                <RefreshCw className="h-5 w-5 text-accent-text" aria-hidden="true" />
                 Sincronização automática
               </h2>
-              <span className="shrink-0 font-mono text-[11px] text-slate-400">
+              <span className="shrink-0 font-mono text-[11px] text-ink-muted">
                 Última: {formatDateTimeBr(lastSynced ?? null)}
               </span>
             </div>
-            <p className="relative text-sm leading-relaxed text-slate-300">
+            <p className="relative text-sm leading-relaxed text-ink-2">
               Importa apenas commits e submissões{" "}
-              <code className="rounded bg-white/10 px-1 py-0.5 font-mono text-xs text-white">
+              <code className="rounded bg-well px-1 py-0.5 font-mono text-xs text-ink-strong ring-1 ring-lane-soft">
                 Accepted
               </code>{" "}
-              feitos <strong className="text-white">hoje</strong> no fuso do desafio, com
+              feitos <strong className="text-ink-strong">hoje</strong> no fuso do desafio, com
               deduplicação por evento. Depois você pode editar título e notas direto no feed.
             </p>
 
@@ -310,9 +306,9 @@ export function IntegrationsTab({
                   type="button"
                   disabled={syncing}
                   onClick={() => void handleSync(true)}
-                  className="btn btn-shell"
+                  className="btn btn-secondary"
                 >
-                  <Sparkles className="h-4 w-4 text-accent-soft" aria-hidden="true" />
+                  <Sparkles className="h-4 w-4 text-accent-text" aria-hidden="true" />
                   {syncMode === "simulate" ? "Simulando..." : "Simular check-in (dev)"}
                 </button>
               )}
@@ -322,10 +318,10 @@ export function IntegrationsTab({
               <div
                 role="status"
                 aria-live="polite"
-                className="animate-rise-in relative flex flex-col gap-3 rounded-xl bg-white/5 p-4 text-xs text-slate-300 ring-1 ring-white/10"
+                className="animate-rise-in relative flex flex-col gap-3 rounded-xl bg-well p-4 text-xs text-ink-2 ring-1 ring-lane-soft"
               >
-                <p className="flex items-center gap-2 text-sm font-bold text-white">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-300" aria-hidden="true" />
+                <p className="flex items-center gap-2 text-sm font-bold text-ink-strong">
+                  <CheckCircle2 className="h-4 w-4 text-success-text" aria-hidden="true" />
                   {syncResult.created_count} check-in(s) publicado(s) ·{" "}
                   {syncResult.skipped_duplicates} duplicado(s) ignorado(s)
                 </p>
@@ -336,7 +332,7 @@ export function IntegrationsTab({
                     ))}
                   </ul>
                 )}
-                <button type="button" onClick={onGoToActive} className="btn btn-sm btn-shell w-fit">
+                <button type="button" onClick={onGoToActive} className="btn btn-sm btn-secondary w-fit">
                   Ver no feed do desafio <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </div>

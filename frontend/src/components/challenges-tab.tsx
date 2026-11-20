@@ -290,14 +290,10 @@ export function ChallengesTab({
           <form
             onSubmit={handleJoinByCode}
             aria-labelledby="join-title"
-            className="card-dark relative flex flex-col gap-3 overflow-hidden p-5"
+            className="card relative flex flex-col gap-3 overflow-hidden p-5"
           >
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-accent-bright/25 blur-2xl"
-            />
-            <h2 id="join-title" className="relative flex items-center gap-2 font-extrabold">
-              <KeyRound className="h-5 w-5 text-accent-bright" aria-hidden="true" />
+            <h2 id="join-title" className="section-title">
+              <KeyRound className="h-5 w-5 text-accent-text" aria-hidden="true" />
               Entrar com código de convite
             </h2>
             <div className="relative flex gap-2">
@@ -307,7 +303,7 @@ export function ChallengesTab({
                 onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                 placeholder="Ex.: CODERATS"
                 aria-label="Código de convite do grupo"
-                className="min-h-11 min-w-0 flex-1 rounded-xl border border-white/15 bg-white/5 px-3.5 font-mono text-sm text-white uppercase placeholder:text-slate-400 focus:border-accent-bright"
+                className="field font-mono uppercase"
               />
               <button
                 type="submit"
@@ -406,7 +402,7 @@ export function ChallengesTab({
               </label>
             </div>
 
-            <p className="rounded-xl bg-well px-3 py-2 text-xs text-ink-2">
+            <p className="rounded-xl border border-lane bg-well px-3 py-2 text-xs text-ink-2">
               {scoringMode === "checkin"
                 ? "Modo Check-in: recompensa constância pura (1 check-in válido no dia = +1 ponto, independente da categoria)."
                 : "Modo Pontuação: cada atividade soma pontos pelo peso da categoria até o teto diário anti-farm."}

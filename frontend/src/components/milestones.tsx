@@ -43,19 +43,19 @@ export function Milestones({
       icon: CalendarCheck,
       value: `${summary.completed}/${summary.elapsed}`,
       label: "dias nesta semana",
-      tone: "bg-emerald-50 text-emerald-700 ring-emerald-700/20",
+      tone: "bg-card text-ink-2 ring-lane-soft",
     },
     {
       icon: ListChecks,
       value: `${entry.checkins_count}`,
       label: entry.checkins_count === 1 ? "estudo válido" : "estudos válidos",
-      tone: "bg-violet-50 text-violet-700 ring-violet-700/20",
+      tone: "bg-card text-ink-2 ring-lane-soft",
     },
     {
       icon: Medal,
       value: position > 0 ? `${position}º` : "—",
       label: `de ${total} em pontos`,
-      tone: "bg-amber-50 text-amber-700 ring-amber-700/20",
+      tone: "bg-card text-ink-2 ring-lane-soft",
     },
   ];
 
@@ -69,7 +69,7 @@ export function Milestones({
         {tiles.map((tile) => {
           const Icon = tile.icon;
           return (
-            <li key={tile.label} className="flex items-center gap-2.5 rounded-xl bg-well p-2.5">
+            <li key={tile.label} className="flex items-center gap-2.5 rounded-xl border border-lane bg-well p-2.5">
               <span
                 className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${tile.tone}`}
               >
@@ -86,8 +86,8 @@ export function Milestones({
         })}
       </ul>
       {restPerWeek > 0 && (
-        <p className="mt-3 flex items-start gap-2 rounded-xl bg-grape/8 px-3 py-2.5 text-xs text-ink-3 ring-1 ring-grape/15">
-          <Coffee className="mt-px h-4 w-4 shrink-0 text-grape dark:text-grape-soft" aria-hidden="true" />
+        <p className="mt-3 flex items-start gap-2 rounded-xl border border-lane bg-card px-3 py-2.5 text-xs text-ink-3">
+          <Coffee className="mt-px h-4 w-4 shrink-0 text-ink-2" aria-hidden="true" />
           <span>
             Descansar também conta: você tem{" "}
             <strong className="font-semibold text-ink-strong">

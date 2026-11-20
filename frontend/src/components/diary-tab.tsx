@@ -125,24 +125,24 @@ export function DiaryTab({ challenges }: DiaryTabProps) {
           aria-label="Resumo do diário"
           className="grid gap-3 sm:grid-cols-[auto_auto_minmax(0,1fr)]"
         >
-          <div className="card-dark flex items-center gap-3 p-4">
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-grape/25 text-grape-soft">
+          <div className="card flex items-center gap-3 p-4">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-well text-ink-2 ring-1 ring-lane-soft">
               <ListChecks className="h-5 w-5" aria-hidden="true" />
             </span>
             <p>
-              <span className="block font-score text-3xl leading-none">{diary.total_entries}</span>
-              <span className="text-xs text-slate-300">
+              <span className="block font-score text-3xl leading-none text-ink-strong">{diary.total_entries}</span>
+              <span className="text-xs text-ink-2">
                 registro(s){hasFilters ? " filtrados" : ""}
               </span>
             </p>
           </div>
-          <div className="card-dark flex items-center gap-3 p-4">
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gold/15 text-gold">
+          <div className="card flex items-center gap-3 p-4">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-well text-gold ring-1 ring-lane-soft">
               <Trophy className="h-5 w-5" aria-hidden="true" />
             </span>
             <p>
-              <span className="block font-score text-3xl leading-none">{diary.total_points}</span>
-              <span className="text-xs text-slate-300">pts válidos</span>
+              <span className="block font-score text-3xl leading-none text-ink-strong">{diary.total_points}</span>
+              <span className="text-xs text-ink-2">pts válidos</span>
             </p>
           </div>
           <div className="card flex flex-col justify-center gap-2.5 p-4">

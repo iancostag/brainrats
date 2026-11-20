@@ -33,7 +33,7 @@ export function RulesPanel({ detail, className = "" }: { detail: ChallengeDetail
             return (
               <li
                 key={cfg.category_id}
-                className="flex items-center justify-between gap-2 rounded-xl bg-well px-3 py-2 text-xs"
+                className="flex items-center justify-between gap-2 rounded-xl border border-lane bg-well px-3 py-2 text-xs"
               >
                 <span className="inline-flex items-center gap-2 font-semibold text-ink-strong">
                   <CategoryIcon slug={cfg.slug} size="md" />

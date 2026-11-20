@@ -25,10 +25,11 @@ export function CategoryIcon({
     round ? "rounded-full" : size === "md" ? "rounded-lg" : "rounded-md"
   }`;
   const icon = size === "md" ? "h-4 w-4" : "h-3 w-3";
+  const tileStyle = checked ? "bg-white/20 text-white" : `${meta.tileClass} border border-lane-soft`;
   return (
     <span
       aria-hidden="true"
-      className={`inline-flex shrink-0 items-center justify-center ${box} ${meta.tileClass} ${className}`}
+      className={`inline-flex shrink-0 items-center justify-center ${box} ${tileStyle} ${className}`}
     >
       <Icon className={icon} strokeWidth={2.4} />
     </span>
