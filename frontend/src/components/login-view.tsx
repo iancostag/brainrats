@@ -90,7 +90,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
       const result = await loginUser({
         username: "demo_dev",
         display_name: "Dev Demo",
-        github_username: "iancostag",
+        github_username: "octocat",
       });
       setStoredToken(result.access_token);
       onSuccess(result.user);
@@ -250,7 +250,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Ex.: iancostag"
+                  placeholder="Ex.: dev_silva"
                   autoComplete="username"
                   className="field"
                   required
@@ -296,7 +296,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
                         type="text"
                         value={displayName}
                         onChange={(e) => setDisplayName(e.target.value)}
-                        placeholder="Ian Costa"
+                        placeholder="Ana Silva"
                         autoComplete="name"
                         className="field"
                       />
@@ -323,7 +323,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
                         type="text"
                         value={githubUsername}
                         onChange={(e) => setGithubUsername(e.target.value)}
-                        placeholder="iancostag"
+                        placeholder="seu_usuario_gh"
                         className="field"
                       />
                     </label>

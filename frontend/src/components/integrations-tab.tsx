@@ -204,7 +204,7 @@ export function IntegrationsTab({
               type="text"
               value={githubUsername}
               onChange={(e) => setGithubUsername(e.target.value)}
-              placeholder="Ex.: iancostag"
+              placeholder="Ex.: seu_usuario_gh"
               className="field"
             />
           </label>

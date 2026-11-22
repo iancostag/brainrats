@@ -400,7 +400,7 @@ export function CheckinForm({
                   type="text"
                   value={repository}
                   onChange={(e) => setRepository(e.target.value)}
-                  placeholder="Ex.: iancostag/brainrats"
+                  placeholder="Ex.: octocat/meu-projeto"
                   className="field bg-card"
                 />
               </label>
