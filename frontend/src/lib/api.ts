@@ -18,6 +18,7 @@ export interface User {
   email?: string | null;
   avatar_url: string | null;
   bio: string | null;
+  last_challenge_id?: string | null;
   has_github_oauth?: boolean;
   integrations: Integration[];
 }
@@ -301,6 +302,7 @@ export function updateProfile(payload: {
   github_username?: string;
   leetcode_username?: string;
   target_challenge_id?: string | null;
+  last_challenge_id?: string | null;
 }): Promise<User> {
   return apiRequest<User>("/auth/me", {
     method: "PATCH",

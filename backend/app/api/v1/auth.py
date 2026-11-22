@@ -129,6 +129,7 @@ async def _build_user_out(db: AsyncSession, user: User) -> UserOut:
         email=user.email,
         avatar_url=user.avatar_url,
         bio=user.bio,
+        last_challenge_id=user.last_challenge_id,
         has_github_oauth=has_oauth,
         integrations=[
             IntegrationOut(
@@ -463,6 +464,29 @@ async def update_me(
         ).all()
         for item in integrations:
             item.target_challenge_id = payload.target_challenge_id
+
+    if payload.last_challenge_id is not None:
+        challenge = await db.scalar(
+            select(Challenge).where(Challenge.id == payload.last_challenge_id)
+        )
+        if challenge is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Desafio não encontrado.",
+            )
+        if challenge.visibility != "public":
+            is_member = await db.scalar(
+                select(ChallengeMember.id).where(
+                    ChallengeMember.challenge_id == challenge.id,
+                    ChallengeMember.user_id == current_user.id,
+                )
+            )
+            if is_member is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Você não participa deste desafio.",
+                )
+        current_user.last_challenge_id = challenge.id
 
     await db.commit()
     await db.refresh(current_user)

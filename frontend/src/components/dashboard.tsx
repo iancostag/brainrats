@@ -1,7 +1,7 @@
 "use client";
 
 import { Coffee, Compass, Swords } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { AppShell, type StreakSnapshot, type TabId } from "@/components/app-shell";
 import { ChallengeHero, ChallengeHeroSkeleton } from "@/components/challenge-hero";
@@ -24,13 +24,20 @@ import {
   joinChallenge,
   registerRestDay,
   syncIntegrations,
+  updateProfile,
   type ChallengeDetail,
   type ChallengeListItem,
   type CheckIn,
   type User,
 } from "@/lib/api";
 import { formatPointsLabel } from "@/lib/categories";
-import { buildChallengeInviteUrl, clearPendingInvite, getPendingInvite } from "@/lib/invite";
+import {
+  buildChallengeInviteUrl,
+  clearPendingInvite,
+  getPendingInvite,
+  getStoredLastChallengeId,
+  setStoredLastChallengeId,
+} from "@/lib/invite";
 import { sortLeaderboard, type LeaderboardSort } from "@/lib/leaderboard";
 import { getChallengeWeekDays, summarizeWeek } from "@/lib/week";
 
@@ -103,25 +110,55 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
     }
   }, []);
 
-  const loadChallenges = useCallback(async (preferredId?: string) => {
-    setLoadingChallenges(true);
-    setChallengesError(null);
-    try {
-      const list = await fetchChallenges();
-      setChallenges(list);
-      setActiveChallengeId((prev) => {
-        if (preferredId && list.some((c) => c.id === preferredId)) return preferredId;
-        if (prev && list.some((c) => c.id === prev)) return prev;
-        return list.find((c) => c.is_member)?.id ?? list[0]?.id ?? "";
-      });
-    } catch (err) {
-      setChallengesError(
-        err instanceof Error ? err.message : "Não foi possível carregar os desafios.",
-      );
-    } finally {
-      setLoadingChallenges(false);
-    }
-  }, []);
+  const userLastChallengeRef = useRef(user.last_challenge_id);
+  userLastChallengeRef.current = user.last_challenge_id;
+
+  const selectActiveChallenge = useCallback(
+    (challengeId: string, persist = true) => {
+      if (!challengeId) return;
+      setActiveChallengeId(challengeId);
+      setStoredLastChallengeId(user.id, challengeId);
+      if (persist && challengeId !== userLastChallengeRef.current) {
+        void updateProfile({ last_challenge_id: challengeId })
+          .then(onUserUpdated)
+          .catch(() => {});
+      }
+    },
+    [onUserUpdated, user.id],
+  );
+
+  const loadChallenges = useCallback(
+    async (preferredId?: string) => {
+      setLoadingChallenges(true);
+      setChallengesError(null);
+      try {
+        const list = await fetchChallenges();
+        setChallenges(list);
+        const storedId = getStoredLastChallengeId(user.id);
+        const serverLastId = userLastChallengeRef.current;
+        setActiveChallengeId((prev) => {
+          if (preferredId && list.some((c) => c.id === preferredId)) {
+            setStoredLastChallengeId(user.id, preferredId);
+            return preferredId;
+          }
+          if (prev && list.some((c) => c.id === prev)) return prev;
+          if (serverLastId && list.some((c) => c.id === serverLastId)) {
+            setStoredLastChallengeId(user.id, serverLastId);
+            return serverLastId;
+          }
+          if (storedId && list.some((c) => c.id === storedId)) return storedId;
+          return list.find((c) => c.is_member)?.id ?? list[0]?.id ?? "";
+        });
+      } catch (err) {
+        setChallengesError(
+          err instanceof Error ? err.message : "Não foi possível carregar os desafios.",
+        );
+      } finally {
+        setLoadingChallenges(false);
+      }
+    },
+    [user.id],
+  );
 
   const loadActiveChallengeData = useCallback(async (challengeId: string) => {
     if (!challengeId) return;
@@ -422,7 +459,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
               <ChallengeHero
                 challenges={challenges}
                 activeChallengeId={activeChallengeId}
-                onChangeChallenge={setActiveChallengeId}
+                onChangeChallenge={selectActiveChallenge}
                 detail={detail}
                 days={weekDays}
                 summary={weekSummary}
@@ -603,7 +640,7 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
               detail={detail}
               challenges={challenges}
               activeChallengeId={activeChallengeId}
-              onChangeChallenge={setActiveChallengeId}
+              onChangeChallenge={selectActiveChallenge}
               sort={leaderboardSort}
               onSortChange={setLeaderboardSort}
               currentUserId={user.id}
@@ -617,12 +654,13 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
           challenges={challenges}
           activeChallengeId={activeChallengeId}
           onSelectChallenge={(id) => {
-            setActiveChallengeId(id);
+            selectActiveChallenge(id);
             switchTab("home");
           }}
           onRefreshChallenges={async (selectId) => {
             await loadChallenges(selectId);
             if (selectId) {
+              setStoredLastChallengeId(user.id, selectId);
               switchTab("home");
             }
           }}

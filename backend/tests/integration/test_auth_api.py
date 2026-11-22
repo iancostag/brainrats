@@ -134,3 +134,43 @@ def test_dev_login_creates_default_membership_without_network(api_client: TestCl
 
     assert challenges.status_code == 200
     assert any(item["is_member"] for item in challenges.json())
+
+
+def test_last_challenge_id_persists_across_me_and_enforces_private_membership(
+    api_client: TestClient,
+) -> None:
+    owner_headers = dev_login(api_client, "challenge_owner")
+    member_headers = dev_login(api_client, "challenge_member")
+
+    private_ch = api_client.post(
+        "/api/v1/challenges",
+        headers=owner_headers,
+        json={"title": "Privado Owner", "visibility": "private", "scoring_mode": "checkin"},
+    )
+    assert private_ch.status_code == 201
+    private_id = private_ch.json()["id"]
+
+    owner_me = api_client.get("/api/v1/auth/me", headers=owner_headers)
+    assert owner_me.status_code == 200
+    assert owner_me.json()["last_challenge_id"] == private_id
+
+    forbidden = api_client.patch(
+        "/api/v1/auth/me",
+        headers=member_headers,
+        json={"last_challenge_id": private_id},
+    )
+    assert forbidden.status_code == 403
+
+    public_list = api_client.get("/api/v1/challenges", headers=member_headers).json()
+    second_id = public_list[1]["id"]
+    updated = api_client.patch(
+        "/api/v1/auth/me",
+        headers=member_headers,
+        json={"last_challenge_id": second_id},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["last_challenge_id"] == second_id
+
+    member_me = api_client.get("/api/v1/auth/me", headers=member_headers)
+    assert member_me.status_code == 200
+    assert member_me.json()["last_challenge_id"] == second_id

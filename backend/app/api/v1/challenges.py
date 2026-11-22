@@ -176,6 +176,7 @@ async def create_challenge(
         if cfg.category_slug in categories_by_slug
     }
     await attach_default_category_configs(db, challenge.id, categories_by_slug, overrides)
+    current_user.last_challenge_id = challenge.id
 
     await db.commit()
     await db.refresh(challenge)
@@ -229,7 +230,9 @@ async def join_challenge(
             role="member",
         )
         db.add(membership)
-        await db.commit()
+
+    current_user.last_challenge_id = challenge.id
+    await db.commit()
 
     members_count = int(
         await db.scalar(

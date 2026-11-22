@@ -18,6 +18,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     fetchChallengeDetail: vi.fn(),
     fetchChallengeFeed: vi.fn(),
     joinChallenge: vi.fn(),
+    updateProfile: vi.fn(),
   };
 });
 
@@ -158,5 +159,61 @@ describe("challenge direct invite link flow", () => {
 
     await user.click(screen.getByRole("button", { name: /Copiar link de convite/ }));
     expect(onCopyInviteLink).toHaveBeenCalledOnce();
+  });
+
+  it("restores user.last_challenge_id on load and persists changes on switch", async () => {
+    const user = userEvent.setup();
+    const first: api.ChallengeListItem = {
+      id: "ch-1",
+      slug: "primeiro",
+      title: "Primeiro Desafio",
+      description: null,
+      visibility: "public",
+      invite_code: "FIRST001",
+      scoring_mode: "points",
+      timezone: "America/Sao_Paulo",
+      start_date: "2026-11-01",
+      end_date: null,
+      rest_days_per_week: 1,
+      daily_points_cap: 100,
+      is_member: true,
+      member_role: "member",
+      members_count: 2,
+      created_at: "2026-11-02T00:00:00Z",
+    };
+    const second: api.ChallengeListItem = {
+      ...first,
+      id: "ch-2",
+      slug: "segundo",
+      title: "Segundo Desafio",
+      invite_code: "SECOND02",
+      created_at: "2026-11-01T00:00:00Z",
+    };
+
+    const initialUser = userFixture({ last_challenge_id: "ch-2" });
+    vi.mocked(api.fetchChallenges).mockResolvedValueOnce([first, second]);
+    vi.mocked(api.fetchChallengeDetail).mockImplementation(async (id) => ({
+      challenge: id === "ch-2" ? second : first,
+      category_configs: [categoryConfigFixture("project")],
+      leaderboard: [leaderboardFixture()],
+      user_rest_dates: [],
+      rest_days_remaining_this_week: 1,
+    }));
+    vi.mocked(api.fetchChallengeFeed).mockResolvedValue([]);
+    vi.mocked(api.updateProfile).mockResolvedValueOnce(
+      userFixture({ last_challenge_id: "ch-1" }),
+    );
+
+    render(<Dashboard user={initialUser} onUserUpdated={vi.fn()} onLogout={vi.fn()} />);
+
+    await waitFor(() => expect(api.fetchChallengeDetail).toHaveBeenCalledWith("ch-2"));
+
+    const switcher = await screen.findByLabelText("Trocar desafio ativo");
+    await user.selectOptions(switcher, "ch-1");
+
+    await waitFor(() =>
+      expect(api.updateProfile).toHaveBeenCalledWith({ last_challenge_id: "ch-1" }),
+    );
+    await waitFor(() => expect(api.fetchChallengeDetail).toHaveBeenCalledWith("ch-1"));
   });
 });

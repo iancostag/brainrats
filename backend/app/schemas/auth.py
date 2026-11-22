@@ -47,6 +47,7 @@ class UserOut(BaseModel):
     email: str | None = None
     avatar_url: str | None
     bio: str | None
+    last_challenge_id: uuid.UUID | None = None
     has_github_oauth: bool = False
     integrations: list[IntegrationOut] = Field(default_factory=list)
 
@@ -63,6 +64,7 @@ class UpdateProfileRequest(BaseModel):
     github_username: str | None = Field(default=None, max_length=100)
     leetcode_username: str | None = Field(default=None, max_length=100)
     target_challenge_id: uuid.UUID | None = None
+    last_challenge_id: uuid.UUID | None = None
 
 
 class GitHubRepoItem(BaseModel):

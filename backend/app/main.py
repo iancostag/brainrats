@@ -33,6 +33,13 @@ async def _ensure_sqlite_migrations() -> None:
         col_names = {row[1] for row in cols}
         if "password_hash" not in col_names:
             await conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
+        if "last_challenge_id" not in col_names:
+            await conn.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN last_challenge_id CHAR(32) "
+                    "REFERENCES challenges(id) ON DELETE SET NULL"
+                )
+            )
 
         if await _sqlite_needs_checkin_uq_migration(conn):
             await conn.execute(text("PRAGMA foreign_keys=OFF"))
@@ -48,10 +55,16 @@ async def _ensure_sqlite_migrations() -> None:
 
 
 async def _ensure_postgres_migrations() -> None:
-    """Update legacy unique constraint on checkins to scope deduplication by challenge."""
-    if not settings.database_url.startswith("postgresql"):
+    """Update existing PostgreSQL schema columns and constraints idempotently."""
+    if not settings.resolved_database_url.startswith("postgresql"):
         return
     async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_challenge_id UUID "
+                "REFERENCES challenges(id) ON DELETE SET NULL"
+            )
+        )
         cols = (
             await conn.execute(
                 text(

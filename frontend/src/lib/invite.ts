@@ -1,4 +1,16 @@
 const PENDING_INVITE_STORAGE_KEY = "brainrats_pending_invite";
+const LAST_CHALLENGE_PREFIX = "brainrats_last_challenge:";
+
+export function getStoredLastChallengeId(userId: string): string | null {
+  if (typeof window === "undefined" || !userId) return null;
+  const value = window.localStorage.getItem(`${LAST_CHALLENGE_PREFIX}${userId}`);
+  return value && value.trim() ? value.trim() : null;
+}
+
+export function setStoredLastChallengeId(userId: string, challengeId: string): void {
+  if (typeof window === "undefined" || !userId || !challengeId) return;
+  window.localStorage.setItem(`${LAST_CHALLENGE_PREFIX}${userId}`, challengeId);
+}
 
 export function normalizeInviteCode(raw: string): string {
   return raw.trim().toUpperCase();
