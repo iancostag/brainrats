@@ -25,7 +25,7 @@ export function CategoryIcon({
     round ? "rounded-full" : size === "md" ? "rounded-lg" : "rounded-md"
   }`;
   const icon = size === "md" ? "h-4 w-4" : "h-3 w-3";
-  const tileStyle = checked ? "bg-white/20 text-white" : `${meta.tileClass} border border-lane-soft`;
+  const tileStyle = checked ? "bg-ink-strong text-canvas" : `${meta.tileClass} border border-current/15`;
   return (
     <span
       aria-hidden="true"
@@ -119,8 +119,8 @@ export function CategoryFilter({
           onClick={() => onChange("reported")}
           className={`${base} px-3 ${
             value === "reported"
-              ? "border-amber-700 bg-amber-100 text-amber-950 ring-1 ring-amber-700"
-              : "border-amber-700/25 bg-amber-50 text-amber-900"
+              ? "border-red-600 bg-red-100 text-red-950 ring-1 ring-red-600"
+              : "border-red-600/35 bg-red-50 text-red-900"
           }`}
         >
           <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" /> Denunciados ({reportedCount})

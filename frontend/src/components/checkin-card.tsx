@@ -470,11 +470,21 @@ const SOURCE_ICONS: Record<CheckIn["source"], LucideIcon> = {
   leetcode: Code2,
 };
 
-/** Chip de origem: Manual, GitHub Auto ou LeetCode Auto (com ícone). */
+const SOURCE_CHIP_CLASSES: Record<CheckIn["source"], string> = {
+  manual: "bg-well text-ink-2 ring-lane",
+  github:
+    "bg-slate-900 text-white ring-slate-900/20 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-500/40",
+  leetcode:
+    "bg-orange-100 text-orange-950 ring-orange-600/30 dark:bg-[#331a0d] dark:text-[#ffb088] dark:ring-orange-400/35",
+};
+
+/** Chip de origem: Manual, GitHub Auto ou LeetCode Auto (com ícone e cor própria). */
 export function SourceChip({ source, suffix }: { source: CheckIn["source"]; suffix?: string }) {
   const Icon = SOURCE_ICONS[source];
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-well px-2 py-0.5 text-[11px] font-semibold text-ink-2 ring-1 ring-lane-soft">
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${SOURCE_CHIP_CLASSES[source]}`}
+    >
       <Icon className="h-3 w-3" aria-hidden="true" />
       {SOURCE_LABELS[source]}
       {suffix}
