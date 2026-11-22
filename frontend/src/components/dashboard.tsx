@@ -43,6 +43,7 @@ import { getChallengeWeekDays, summarizeWeek } from "@/lib/week";
 
 interface DashboardProps {
   user: User;
+  initialNotice?: { ok: boolean; text: string } | null;
   onUserUpdated: (user: User) => void;
   onLogout: () => void;
 }
@@ -51,7 +52,7 @@ const FEED_PAGE_SIZE = 30;
 /** Linhas do placar no Início; o ranking completo fica na aba Ranking. */
 const HOME_SCOREBOARD_LIMIT = 5;
 
-export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
+export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout }: DashboardProps) {
   const [tab, setTab] = useState<TabId>("home");
   const [challenges, setChallenges] = useState<ChallengeListItem[]>([]);
   const [activeChallengeId, setActiveChallengeId] = useState<string>("");
@@ -65,7 +66,9 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
 
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [inviteNotice, setInviteNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  const [inviteNotice, setInviteNotice] = useState<{ ok: boolean; text: string } | null>(
+    initialNotice,
+  );
   const [showRules, setShowRules] = useState(false);
   const [confirmRestDay, setConfirmRestDay] = useState(false);
   const [restingBusy, setRestingBusy] = useState(false);
@@ -682,7 +685,12 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
       </div>
 
       <div hidden={tab !== "settings"}>
-        <SettingsTab user={user} onUserUpdated={onUserUpdated} onLogout={handleLogout} />
+        <SettingsTab
+          user={user}
+          onUserUpdated={onUserUpdated}
+          onOpenIntegrations={() => switchTab("integrations")}
+          onLogout={handleLogout}
+        />
       </div>
     </AppShell>
   );

@@ -15,9 +15,10 @@ import {
 import { useEffect, useState, type FormEvent } from "react";
 
 import {
+  disconnectIntegration,
   fetchAuthProviders,
   fetchGithubRepos,
-  getGithubOAuthUrl,
+  requestGithubOAuthLinkUrl,
   saveMonitoredRepos,
   syncIntegrations,
   updateProfile,
@@ -72,12 +73,22 @@ export function IntegrationsTab({
   const [repoMessage, setRepoMessage] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
+  const [linkingOAuth, setLinkingOAuth] = useState(false);
+  const [disconnecting, setDisconnecting] = useState<"github" | "leetcode" | null>(null);
   const [syncMode, setSyncMode] = useState<"real" | "simulate" | null>(null);
   const [syncResult, setSyncResult] = useState<SyncResponse | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const syncing = syncMode !== null;
+
+  useEffect(() => {
+    setGithubUsername(ghIntegration?.external_username ?? "");
+  }, [ghIntegration?.external_username]);
+
+  useEffect(() => {
+    setLeetcodeUsername(lcIntegration?.external_username ?? "");
+  }, [lcIntegration?.external_username]);
 
   useEffect(() => {
     fetchAuthProviders()
@@ -123,12 +134,48 @@ export function IntegrationsTab({
 
   async function persistSettings() {
     const updated = await updateProfile({
-      github_username: githubUsername.trim() || undefined,
-      leetcode_username: leetcodeUsername.trim() || undefined,
+      github_username: githubUsername.trim(),
+      leetcode_username: leetcodeUsername.trim(),
       target_challenge_id: targetChallengeId || null,
     });
     onUserUpdated(updated);
     return updated;
+  }
+
+  async function handleConnectOAuth() {
+    setError(null);
+    setMessage(null);
+    setLinkingOAuth(true);
+    try {
+      const { url } = await requestGithubOAuthLinkUrl("integrations");
+      window.location.assign(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível iniciar o GitHub OAuth.");
+      setLinkingOAuth(false);
+    }
+  }
+
+  async function handleDisconnect(provider: "github" | "leetcode") {
+    setError(null);
+    setMessage(null);
+    setDisconnecting(provider);
+    try {
+      const updated = await disconnectIntegration(provider);
+      onUserUpdated(updated);
+      if (provider === "github") {
+        setGithubUsername("");
+        setRepos([]);
+      } else {
+        setLeetcodeUsername("");
+      }
+      setMessage(
+        provider === "github" ? "Integração com GitHub desconectada." : "LeetCode desconectado.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível desconectar.");
+    } finally {
+      setDisconnecting(null);
+    }
   }
 
   async function handleSave(event: FormEvent) {
@@ -371,6 +418,14 @@ export function IntegrationsTab({
                         {savingRepos ? "Salvando..." : "Salvar seleção"}
                       </button>
                     )}
+                    <button
+                      type="button"
+                      disabled={disconnecting === "github"}
+                      onClick={() => void handleDisconnect("github")}
+                      className="btn btn-sm btn-secondary text-red-800 hover:border-red-600/40"
+                    >
+                      {disconnecting === "github" ? "Desconectando..." : "Desconectar OAuth"}
+                    </button>
                   </div>
 
                   {repos.length > 0 && (
@@ -414,9 +469,15 @@ export function IntegrationsTab({
                     Conecte sua conta via GitHub OAuth para escolher repositórios específicos
                     (públicos ou privados) no monitoramento.
                   </p>
-                  <a href={getGithubOAuthUrl()} className="btn btn-sm btn-dark w-fit">
-                    <Github className="h-4 w-4" aria-hidden="true" /> Conectar via GitHub OAuth
-                  </a>
+                  <button
+                    type="button"
+                    disabled={linkingOAuth}
+                    onClick={() => void handleConnectOAuth()}
+                    className="btn btn-sm btn-dark w-fit"
+                  >
+                    <Github className="h-4 w-4" aria-hidden="true" />
+                    {linkingOAuth ? "Redirecionando..." : "Conectar via GitHub OAuth"}
+                  </button>
                 </div>
               ) : (
                 <p className="text-xs text-ink-2">

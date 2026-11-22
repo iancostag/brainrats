@@ -256,6 +256,21 @@ export function getGithubOAuthUrl(): string {
   return `${getApiBaseUrl()}/auth/github/login`;
 }
 
+export function requestGithubOAuthLinkUrl(
+  redirectTab: "integrations" | "settings" = "integrations",
+): Promise<{ url: string }> {
+  return apiRequest<{ url: string }>("/auth/github/link", {
+    method: "POST",
+    body: JSON.stringify({ redirect_tab: redirectTab }),
+  });
+}
+
+export function disconnectIntegration(provider: "github" | "leetcode"): Promise<User> {
+  return apiRequest<User>(`/auth/me/integrations/${provider}`, {
+    method: "DELETE",
+  });
+}
+
 export function registerWithPassword(payload: {
   username: string;
   password: string;

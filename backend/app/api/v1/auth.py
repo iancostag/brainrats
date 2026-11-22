@@ -1,11 +1,12 @@
 import re
 import uuid
+from typing import Literal
 from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -20,10 +21,12 @@ from app.core.security import (
     verify_password,
 )
 from app.models.challenge import Challenge, ChallengeMember
-from app.models.user import User, UserIntegration
+from app.models.user import MonitoredRepository, User, UserIntegration
 from app.schemas.auth import (
     AuthProvidersResponse,
     AuthResponse,
+    GitHubOAuthLinkRequest,
+    GitHubOAuthLinkResponse,
     IntegrationOut,
     LoginRequest,
     PasswordLoginRequest,
@@ -294,9 +297,12 @@ async def login_or_register_dev(
     return AuthResponse(access_token=token, user=await _build_user_out(db, user))
 
 
-@router.get("/github/login")
-async def github_oauth_login(request: Request) -> RedirectResponse:
-    """Redirect the user to GitHub OAuth authorization page."""
+def _build_github_authorize_url(
+    request: Request,
+    *,
+    link_user_id: uuid.UUID | None = None,
+    redirect_tab: str | None = None,
+) -> str:
     if not settings.github_client_id or not settings.github_client_secret:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -309,10 +315,46 @@ async def github_oauth_login(request: Request) -> RedirectResponse:
             "client_id": settings.github_client_id,
             "redirect_uri": redirect_uri,
             "scope": "read:user user:email repo",
-            "state": create_oauth_state(),
+            "state": create_oauth_state(link_user_id=link_user_id, redirect_tab=redirect_tab),
         }
     )
-    return RedirectResponse(url=f"https://github.com/login/oauth/authorize?{params}")
+    return f"https://github.com/login/oauth/authorize?{params}"
+
+
+async def _delete_user_integration(
+    db: AsyncSession, *, user_id: uuid.UUID, provider: Literal["github", "leetcode"]
+) -> None:
+    await db.execute(
+        delete(UserIntegration).where(
+            UserIntegration.user_id == user_id,
+            UserIntegration.provider == provider,
+        )
+    )
+    if provider == "github":
+        await db.execute(delete(MonitoredRepository).where(MonitoredRepository.user_id == user_id))
+
+
+@router.get("/github/login")
+async def github_oauth_login(request: Request) -> RedirectResponse:
+    """Redirect the user to GitHub OAuth authorization page."""
+    return RedirectResponse(url=_build_github_authorize_url(request))
+
+
+@router.post("/github/link", response_model=GitHubOAuthLinkResponse)
+async def github_oauth_link_url(
+    request: Request,
+    payload: GitHubOAuthLinkRequest | None = None,
+    current_user: User = Depends(get_current_user),
+) -> GitHubOAuthLinkResponse:
+    """Build a GitHub OAuth URL that links GitHub to the authenticated account."""
+    redirect_tab = payload.redirect_tab if payload is not None else "integrations"
+    return GitHubOAuthLinkResponse(
+        url=_build_github_authorize_url(
+            request,
+            link_user_id=current_user.id,
+            redirect_tab=redirect_tab,
+        )
+    )
 
 
 @router.get("/github/callback", name="github_oauth_callback")
@@ -323,7 +365,11 @@ async def github_oauth_callback(
     db: AsyncSession = Depends(get_db),
 ) -> RedirectResponse:
     """Handle GitHub OAuth callback, persist encrypted access token, and redirect with JWT."""
-    verify_oauth_state(state)
+    state_payload = verify_oauth_state(state)
+    link_user_raw = state_payload.get("link_user_id")
+    redirect_tab = str(state_payload.get("redirect_tab") or "").strip()
+    tab_suffix = f"&tab={redirect_tab}" if redirect_tab in ("integrations", "settings") else ""
+
     if not settings.github_client_id or not settings.github_client_secret:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -345,7 +391,7 @@ async def github_oauth_callback(
         token_data = token_resp.json()
         gh_access_token = token_data.get("access_token")
         if not gh_access_token:
-            error_url = f"{settings.frontend_url}/?oauth_error=github_token_failed"
+            error_url = f"{settings.frontend_url}/?oauth_error=github_token_failed{tab_suffix}"
             return RedirectResponse(url=error_url)
 
         gh_headers = {
@@ -354,7 +400,9 @@ async def github_oauth_callback(
         }
         profile_resp = await client.get("https://api.github.com/user", headers=gh_headers)
         if profile_resp.status_code != 200:
-            return RedirectResponse(url=f"{settings.frontend_url}/?oauth_error=github_user_failed")
+            return RedirectResponse(
+                url=f"{settings.frontend_url}/?oauth_error=github_user_failed{tab_suffix}"
+            )
         gh_user = profile_resp.json()
 
         email = gh_user.get("email")
@@ -372,29 +420,56 @@ async def github_oauth_callback(
     gh_login = str(gh_user["login"])
     normalized = _normalize_username(gh_login)
 
-    user = await db.scalar(select(User).where(User.github_id == github_id))
-    if user is None:
-        user = await db.scalar(select(User).where(User.username == normalized))
-
-    if user is None:
-        user = User(
-            github_id=github_id,
-            username=normalized,
-            display_name=gh_user.get("name") or gh_login,
-            email=email,
-            avatar_url=gh_user.get("avatar_url"),
-            bio=gh_user.get("bio"),
+    if link_user_raw:
+        try:
+            link_user_uuid = uuid.UUID(str(link_user_raw))
+        except ValueError:
+            return RedirectResponse(
+                url=f"{settings.frontend_url}/?oauth_error=github_user_failed{tab_suffix}"
+            )
+        user = await db.scalar(select(User).where(User.id == link_user_uuid))
+        if user is None:
+            return RedirectResponse(
+                url=f"{settings.frontend_url}/?oauth_error=github_user_failed{tab_suffix}"
+            )
+        conflict = await db.scalar(
+            select(User.id).where(User.github_id == github_id, User.id != user.id)
         )
-        db.add(user)
-        await db.flush()
-    else:
+        if conflict is not None:
+            return RedirectResponse(
+                url=f"{settings.frontend_url}/?oauth_error=github_already_linked{tab_suffix}"
+            )
         user.github_id = github_id
-        if gh_user.get("avatar_url"):
+        if gh_user.get("avatar_url") and not user.avatar_url:
             user.avatar_url = gh_user["avatar_url"]
         if gh_user.get("bio") and not user.bio:
             user.bio = gh_user["bio"]
         if email and not user.email:
             user.email = email
+    else:
+        user = await db.scalar(select(User).where(User.github_id == github_id))
+        if user is None:
+            user = await db.scalar(select(User).where(User.username == normalized))
+
+        if user is None:
+            user = User(
+                github_id=github_id,
+                username=normalized,
+                display_name=gh_user.get("name") or gh_login,
+                email=email,
+                avatar_url=gh_user.get("avatar_url"),
+                bio=gh_user.get("bio"),
+            )
+            db.add(user)
+            await db.flush()
+        else:
+            user.github_id = github_id
+            if gh_user.get("avatar_url"):
+                user.avatar_url = gh_user["avatar_url"]
+            if gh_user.get("bio") and not user.bio:
+                user.bio = gh_user["bio"]
+            if email and not user.email:
+                user.email = email
 
     default_challenge_id = await _ensure_default_membership(db, user.id)
     await _upsert_integration(
@@ -410,7 +485,10 @@ async def github_oauth_callback(
     await db.refresh(user)
 
     jwt_token = create_access_token(user.id)
-    return RedirectResponse(url=f"{settings.frontend_url}/?token={jwt_token}")
+    linked_suffix = "&oauth_linked=1" if link_user_raw else ""
+    return RedirectResponse(
+        url=f"{settings.frontend_url}/?token={jwt_token}{tab_suffix}{linked_suffix}"
+    )
 
 
 @router.get("/me", response_model=UserOut)
@@ -434,27 +512,35 @@ async def update_me(
     if payload.bio is not None:
         current_user.bio = payload.bio.strip() or None
 
-    if payload.github_username is not None and payload.github_username.strip():
-        if not current_user.avatar_url:
-            avatar_url, _ = await _fetch_github_profile(payload.github_username.strip())
-            if avatar_url:
-                current_user.avatar_url = avatar_url
-        await _upsert_integration(
-            db,
-            user_id=current_user.id,
-            provider="github",
-            external_username=payload.github_username,
-            target_challenge_id=payload.target_challenge_id,
-        )
+    if payload.github_username is not None:
+        cleaned_gh = payload.github_username.strip()
+        if cleaned_gh:
+            if not current_user.avatar_url:
+                avatar_url, _ = await _fetch_github_profile(cleaned_gh)
+                if avatar_url:
+                    current_user.avatar_url = avatar_url
+            await _upsert_integration(
+                db,
+                user_id=current_user.id,
+                provider="github",
+                external_username=cleaned_gh,
+                target_challenge_id=payload.target_challenge_id,
+            )
+        else:
+            await _delete_user_integration(db, user_id=current_user.id, provider="github")
 
-    if payload.leetcode_username is not None and payload.leetcode_username.strip():
-        await _upsert_integration(
-            db,
-            user_id=current_user.id,
-            provider="leetcode",
-            external_username=payload.leetcode_username,
-            target_challenge_id=payload.target_challenge_id,
-        )
+    if payload.leetcode_username is not None:
+        cleaned_lc = payload.leetcode_username.strip()
+        if cleaned_lc:
+            await _upsert_integration(
+                db,
+                user_id=current_user.id,
+                provider="leetcode",
+                external_username=cleaned_lc,
+                target_challenge_id=payload.target_challenge_id,
+            )
+        else:
+            await _delete_user_integration(db, user_id=current_user.id, provider="leetcode")
 
     if payload.target_challenge_id is not None:
         integrations = (
@@ -488,6 +574,19 @@ async def update_me(
                 )
         current_user.last_challenge_id = challenge.id
 
+    await db.commit()
+    await db.refresh(current_user)
+    return await _build_user_out(db, current_user)
+
+
+@router.delete("/me/integrations/{provider}", response_model=UserOut)
+async def disconnect_integration(
+    provider: Literal["github", "leetcode"],
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> UserOut:
+    """Disconnect a GitHub or LeetCode integration from the authenticated user."""
+    await _delete_user_integration(db, user_id=current_user.id, provider=provider)
     await db.commit()
     await db.refresh(current_user)
     return await _build_user_out(db, current_user)

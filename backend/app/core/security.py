@@ -73,24 +73,33 @@ def create_access_token(user_id: uuid.UUID) -> str:
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=ALGORITHM)
 
 
-def create_oauth_state() -> str:
+def create_oauth_state(
+    *,
+    link_user_id: uuid.UUID | None = None,
+    redirect_tab: str | None = None,
+) -> str:
     """Create a short-lived signed state token for GitHub OAuth CSRF protection."""
     now = datetime.now(UTC)
-    payload = {
+    payload: dict[str, object] = {
         "purpose": "github_oauth_state",
         "nonce": secrets.token_hex(8),
         "iat": now,
         "exp": now + timedelta(minutes=10),
     }
+    if link_user_id is not None:
+        payload["link_user_id"] = str(link_user_id)
+    if redirect_tab:
+        payload["redirect_tab"] = redirect_tab
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=ALGORITHM)
 
 
-def verify_oauth_state(state: str) -> None:
-    """Validate the GitHub OAuth state token."""
+def verify_oauth_state(state: str) -> dict:
+    """Validate the GitHub OAuth state token and return its claims."""
     try:
         payload = jwt.decode(state, settings.jwt_secret_key, algorithms=[ALGORITHM])
         if payload.get("purpose") != "github_oauth_state":
             raise ValueError("Invalid state purpose")
+        return payload
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

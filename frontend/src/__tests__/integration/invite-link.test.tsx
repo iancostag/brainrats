@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import HomePage from "@/app/page";
 import { ChallengeHero } from "@/components/challenge-hero";
 import { Dashboard } from "@/components/dashboard";
+import { SettingsTab } from "@/components/settings-tab";
 import * as api from "@/lib/api";
 import { buildChallengeInviteUrl, getPendingInvite, setPendingInvite } from "@/lib/invite";
 import { categoryConfigFixture, leaderboardFixture, userFixture } from "@/test/factories";
@@ -14,11 +15,18 @@ vi.mock("@/lib/api", async (importOriginal) => {
   return {
     ...actual,
     fetchMe: vi.fn(),
+    fetchAuthProviders: vi.fn().mockResolvedValue({
+      github_oauth_enabled: false,
+      password_auth_enabled: true,
+      dev_login_enabled: false,
+    }),
     fetchChallenges: vi.fn(),
     fetchChallengeDetail: vi.fn(),
     fetchChallengeFeed: vi.fn(),
     joinChallenge: vi.fn(),
     updateProfile: vi.fn(),
+    disconnectIntegration: vi.fn(),
+    requestGithubOAuthLinkUrl: vi.fn(),
   };
 });
 
@@ -30,6 +38,11 @@ vi.mock("@/components/login-view", () => ({
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(api.fetchAuthProviders).mockResolvedValue({
+    github_oauth_enabled: false,
+    password_auth_enabled: true,
+    dev_login_enabled: false,
+  });
   window.localStorage.clear();
   window.history.replaceState({}, "", "/");
 });
@@ -215,5 +228,47 @@ describe("challenge direct invite link flow", () => {
       expect(api.updateProfile).toHaveBeenCalledWith({ last_challenge_id: "ch-1" }),
     );
     await waitFor(() => expect(api.fetchChallengeDetail).toHaveBeenCalledWith("ch-1"));
+  });
+
+  it("exposes linked accounts and integration actions in SettingsTab", async () => {
+    const user = userEvent.setup();
+    const onOpenIntegrations = vi.fn();
+    const onUserUpdated = vi.fn();
+
+    vi.mocked(api.fetchAuthProviders).mockResolvedValueOnce({
+      github_oauth_enabled: true,
+      password_auth_enabled: true,
+      dev_login_enabled: false,
+    });
+    vi.mocked(api.disconnectIntegration).mockResolvedValueOnce(userFixture({ integrations: [] }));
+
+    render(
+      <SettingsTab
+        user={userFixture({
+          has_github_oauth: false,
+          integrations: [
+            {
+              provider: "leetcode",
+              external_username: "ada_lc",
+              target_challenge_id: null,
+              last_synced_at: null,
+            },
+          ],
+        })}
+        onUserUpdated={onUserUpdated}
+        onOpenIntegrations={onOpenIntegrations}
+        onLogout={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole("button", { name: /Conectar OAuth/ })).toBeVisible();
+    expect(screen.getByText("ada_lc")).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: /Editar em Integrações/ }));
+    expect(onOpenIntegrations).toHaveBeenCalledOnce();
+
+    await user.click(screen.getByRole("button", { name: /Desconectar/ }));
+    await waitFor(() => expect(api.disconnectIntegration).toHaveBeenCalledWith("leetcode"));
+    expect(onUserUpdated).toHaveBeenCalledOnce();
   });
 });

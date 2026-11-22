@@ -67,6 +67,14 @@ class UpdateProfileRequest(BaseModel):
     last_challenge_id: uuid.UUID | None = None
 
 
+class GitHubOAuthLinkRequest(BaseModel):
+    redirect_tab: Literal["integrations", "settings"] = "integrations"
+
+
+class GitHubOAuthLinkResponse(BaseModel):
+    url: str
+
+
 class GitHubRepoItem(BaseModel):
     github_repo_id: int
     full_name: str
