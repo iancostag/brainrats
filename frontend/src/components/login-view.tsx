@@ -106,7 +106,7 @@ export function LoginView({ sessionNotice, onSuccess }: LoginViewProps) {
   return (
     <div className="grid min-h-screen bg-canvas lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
       {/* Painel da marca: navy com o mascote. No celular vira um cabeçalho compacto. */}
-      <section className="relative isolate overflow-hidden bg-shell px-6 py-6 text-white sm:px-10 lg:flex lg:flex-col lg:justify-between lg:py-10">
+      <section className="relative isolate overflow-hidden bg-shell px-6 pb-6 pt-[calc(1.5rem+env(safe-area-inset-top))] text-white sm:px-10 lg:flex lg:flex-col lg:justify-between lg:py-10">
         <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-accent-bright/30 blur-3xl" />
           <div className="absolute -bottom-40 -left-24 h-96 w-96 rounded-full bg-grape/25 blur-3xl" />

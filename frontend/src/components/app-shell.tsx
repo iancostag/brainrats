@@ -198,7 +198,7 @@ export function AppShell({
       </aside>
 
       <div className="lg:pl-[5.5rem] xl:pl-64">
-        <header className="sticky top-0 z-20 border-b border-lane-soft/80 bg-canvas/85 backdrop-blur-md">
+        <header className="sticky top-0 z-20 border-b border-lane-soft/80 bg-canvas/85 pt-[env(safe-area-inset-top)] backdrop-blur-md">
           <div className="mx-auto flex h-16 max-w-[76rem] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
               <span className="lg:hidden">
@@ -250,7 +250,7 @@ export function AppShell({
         <main
           id="conteudo"
           tabIndex={-1}
-          className="mx-auto max-w-[76rem] px-4 pt-5 pb-28 outline-none sm:px-6 sm:pt-6 lg:px-8 lg:pb-12"
+          className="mx-auto max-w-[76rem] px-4 pt-5 pb-[calc(6rem+env(safe-area-inset-bottom))] outline-none sm:px-6 sm:pt-6 lg:px-8 lg:pb-12"
         >
           {children}
         </main>

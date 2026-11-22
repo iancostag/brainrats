@@ -27,6 +27,14 @@ export const metadata: Metadata = {
   description:
     "Desafios em grupo para LeetCode, projetos, livros técnicos, Engenharia de Software e Dados.",
   manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "BrainRats",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -39,6 +47,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: "#111827",
   viewportFit: "cover",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({

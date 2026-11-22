@@ -172,6 +172,16 @@ export interface RestDayResponse {
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
+export function getApiBaseUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
+  if (typeof window !== "undefined" && window.location.hostname) {
+    return `${window.location.protocol}//${window.location.hostname}:8000/api/v1`;
+  }
+  return API_BASE_URL;
+}
+
 const TOKEN_STORAGE_KEY = "brainrats_token";
 
 export function getStoredToken(): string | null {
@@ -211,7 +221,7 @@ async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(`${getApiBaseUrl()}${path}`, {
       ...init,
       headers,
       cache: "no-store",
@@ -242,7 +252,7 @@ export function fetchAuthProviders(): Promise<AuthProviders> {
 }
 
 export function getGithubOAuthUrl(): string {
-  return `${API_BASE_URL}/auth/github/login`;
+  return `${getApiBaseUrl()}/auth/github/login`;
 }
 
 export function registerWithPassword(payload: {

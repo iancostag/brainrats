@@ -76,6 +76,29 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
     }
   }
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const paramTab = new URLSearchParams(window.location.search).get("tab");
+    const mappedTab: TabId | null =
+      paramTab === "home" || paramTab === "active"
+        ? "home"
+        : paramTab === "progress" || paramTab === "diary"
+          ? "progress"
+          : paramTab === "ranking"
+            ? "ranking"
+            : paramTab === "challenges" || paramTab === "explore"
+              ? "challenges"
+              : paramTab === "integrations"
+                ? "integrations"
+                : paramTab === "settings"
+                  ? "settings"
+                  : null;
+    if (mappedTab) {
+      setTab(mappedTab);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
   const loadChallenges = useCallback(async (preferredId?: string) => {
     setLoadingChallenges(true);
     setChallengesError(null);

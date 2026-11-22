@@ -1,46 +1,126 @@
-const CACHE_NAME = "brainrats-shell-v1";
+const CACHE_VERSION = "brainrats-shell-v2";
+const RUNTIME_CACHE = "brainrats-runtime-v2";
 const SHELL_ASSETS = [
   "/",
+  "/offline.html",
   "/manifest.webmanifest",
   "/icon-192.png",
   "/icon-512.png",
+  "/icon.svg",
   "/logo-icon.jpg",
   "/logo-wordmark.png",
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS)).catch(() => {}),
+    caches
+      .open(CACHE_VERSION)
+      .then((cache) => cache.addAll(SHELL_ASSETS))
+      .catch(() => {}),
   );
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
+  const validCaches = new Set([CACHE_VERSION, RUNTIME_CACHE]);
   event.waitUntil(
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))),
+        Promise.all(keys.filter((k) => !validCaches.has(k)).map((k) => caches.delete(k))),
       ),
   );
   self.clients.claim();
 });
 
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
+async function networkFirstNavigation(request) {
+  try {
+    const response = await fetch(request);
+    if (response && response.ok) {
+      const copy = response.clone();
+      caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+    }
+    return response;
+  } catch {
+    const cachedExact = await caches.match(request);
+    if (cachedExact) return cachedExact;
+    const cachedRoot = await caches.match("/");
+    if (cachedRoot) return cachedRoot;
+    const offlinePage = await caches.match("/offline.html");
+    if (offlinePage) return offlinePage;
+    return new Response("Offline", {
+      status: 503,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+}
+
+async function cacheFirstAsset(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response && response.ok) {
+    const copy = response.clone();
+    caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+  }
+  return response;
+}
+
+async function staleWhileRevalidate(request) {
+  const cached = await caches.match(request);
+  const networkPromise = fetch(request)
+    .then((response) => {
+      if (response && response.ok) {
+        const copy = response.clone();
+        caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+      }
+      return response;
+    })
+    .catch(() => cached);
+  return cached || networkPromise;
+}
+
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
+
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+
+  if (request.mode === "navigate") {
+    event.respondWith(networkFirstNavigation(request));
+    return;
+  }
+
+  if (url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(cacheFirstAsset(request));
+    return;
+  }
+
+  if (
+    url.pathname.startsWith("/icon") ||
+    url.pathname.startsWith("/logo") ||
+    url.pathname === "/manifest.webmanifest"
+  ) {
+    event.respondWith(staleWhileRevalidate(request));
+    return;
+  }
 
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (response.ok) {
+        if (response && response.ok) {
           const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => {});
+          caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
         }
         return response;
       })
-      .catch(() => caches.match(request)),
+      .catch(async () => (await caches.match(request)) || Response.error()),
   );
 });
