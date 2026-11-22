@@ -1,3 +1,4 @@
+import logging
 import secrets
 import uuid
 from datetime import UTC, date, datetime
@@ -16,8 +17,16 @@ from app.models.user import MonitoredRepository, User, UserIntegration
 from app.schemas.auth import GitHubRepoItem, MonitoredReposUpdateRequest
 from app.schemas.checkin import SyncRequest, SyncResponse
 from app.services.checkins import hydrate_checkins, publish_checkin
+from app.services.github_sync import (
+    GitHubSyncError,
+    fetch_github_events_commits,
+    fetch_repo_commits_with_token,
+    parse_github_timestamp,
+    sync_github_integration_for_user,
+)
 from app.services.scoring import compute_study_date
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/integrations", tags=["integrations"])
 
 LEETCODE_GRAPHQL_URL = "https://leetcode.com/graphql"
@@ -68,12 +77,7 @@ async def _resolve_target_challenge(
 
 
 def _parse_github_timestamp(raw: str | None) -> datetime | None:
-    if not raw:
-        return None
-    try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
-    except ValueError:
-        return None
+    return parse_github_timestamp(raw)
 
 
 def _parse_leetcode_timestamp(raw: str | int | None) -> datetime | None:
@@ -101,36 +105,7 @@ def _is_within_today_and_challenge(
 
 
 async def _fetch_github_push_commits(github_username: str) -> list[dict]:
-    commits: list[dict] = []
-    async with httpx.AsyncClient(timeout=6.0) as client:
-        resp = await client.get(
-            f"https://api.github.com/users/{github_username}/events/public",
-            headers={"Accept": "application/vnd.github+json"},
-        )
-        if resp.status_code != 200:
-            return commits
-        for event in resp.json():
-            if event.get("type") != "PushEvent":
-                continue
-            repo_name = (event.get("repo") or {}).get("name", "github-repo")
-            payload = event.get("payload") or {}
-            created_at = event.get("created_at")
-            for commit in payload.get("commits", []):
-                sha = commit.get("sha")
-                message = (commit.get("message") or "").splitlines()[0].strip()
-                if sha and message:
-                    commits.append(
-                        {
-                            "sha": sha,
-                            "title": f"[{repo_name}] {message}"[:190],
-                            "repo": repo_name,
-                            "url": f"https://github.com/{repo_name}/commit/{sha}",
-                            "created_at": created_at,
-                        }
-                    )
-            if len(commits) >= 15:
-                break
-    return commits[:15]
+    return await fetch_github_events_commits(github_username)
 
 
 async def _fetch_repo_commits_with_token(
@@ -139,35 +114,7 @@ async def _fetch_repo_commits_with_token(
     access_token: str,
     since_iso: str,
 ) -> list[dict]:
-    commits: list[dict] = []
-    async with httpx.AsyncClient(timeout=6.0) as client:
-        resp = await client.get(
-            f"https://api.github.com/repos/{full_name}/commits",
-            params={"author": author, "since": since_iso, "per_page": 15},
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Accept": "application/vnd.github+json",
-            },
-        )
-        if resp.status_code != 200:
-            return commits
-        for item in resp.json():
-            sha = item.get("sha")
-            commit_obj = item.get("commit") or {}
-            message = (commit_obj.get("message") or "").splitlines()[0].strip()
-            author_date = (commit_obj.get("author") or {}).get("date")
-            html_url = item.get("html_url")
-            if sha and message:
-                commits.append(
-                    {
-                        "sha": sha,
-                        "title": f"[{full_name}] {message}"[:190],
-                        "repo": full_name,
-                        "url": html_url or f"https://github.com/{full_name}/commit/{sha}",
-                        "created_at": author_date,
-                    }
-                )
-    return commits
+    return await fetch_repo_commits_with_token(full_name, author, access_token, since_iso)
 
 
 async def _fetch_leetcode_submissions(leetcode_username: str) -> list[dict]:
@@ -366,68 +313,25 @@ async def sync_integrations(
             target = await _resolve_target_challenge(
                 db, current_user.id, payload.challenge_id or gh_integration.target_challenge_id
             )
-            today_in_tz = compute_study_date(datetime.now(UTC), target.timezone)
-            oauth_token = (
-                decrypt_secret(gh_integration.access_token_encrypted)
-                if gh_integration.access_token_encrypted
-                else None
-            )
-            monitored_repos = (
-                await db.scalars(
-                    select(MonitoredRepository).where(
-                        MonitoredRepository.user_id == current_user.id,
-                        MonitoredRepository.is_active.is_(True),
-                    )
-                )
-            ).all()
-
             try:
-                if oauth_token and monitored_repos:
-                    since_iso = f"{today_in_tz.isoformat()}T00:00:00Z"
-                    commits: list[dict] = []
-                    for repo in monitored_repos:
-                        repo_commits = await _fetch_repo_commits_with_token(
-                            repo.full_name,
-                            gh_integration.external_username,
-                            oauth_token,
-                            since_iso,
-                        )
-                        commits.extend(repo_commits)
-                else:
-                    commits = await _fetch_github_push_commits(gh_integration.external_username)
-
-                skipped_old = 0
-                today_matches = 0
-                for item in commits:
-                    occurred_at = _parse_github_timestamp(item.get("created_at"))
-                    if not _is_within_today_and_challenge(occurred_at, target, today_in_tz):
-                        skipped_old += 1
-                        continue
-                    today_matches += 1
-                    row = await publish_checkin(
-                        db,
-                        challenge=target,
-                        user_id=current_user.id,
-                        category=categories_by_slug["project"],
-                        title=item["title"],
-                        description=None,
-                        source="github",
-                        external_event_id=item["sha"],
-                        metadata_json={"repository": item["repo"], "commits_count": 1},
-                        evidence_url=item["url"],
-                        occurred_at=occurred_at,
-                    )
-                    if row is None:
-                        skipped += 1
-                    else:
-                        created_rows.append(row)
-                gh_integration.last_synced_at = datetime.now(UTC)
-                gh_name = gh_integration.external_username
-                details.append(
-                    f"GitHub ({gh_name}): {today_matches} commit(s) de hoje "
-                    f"({skipped_old} de dias anteriores ignorado(s))."
+                gh_rows, gh_skipped, gh_detail = await sync_github_integration_for_user(
+                    db,
+                    user_id=current_user.id,
+                    gh_integration=gh_integration,
+                    challenge=target,
+                    project_category=categories_by_slug["project"],
+                    decrypt_fn=decrypt_secret,
+                    public_fetcher=_fetch_github_push_commits,
                 )
+                created_rows.extend(gh_rows)
+                skipped += gh_skipped
+                details.append(gh_detail)
+            except GitHubSyncError as exc:
+                details.append(str(exc))
             except Exception:
+                logger.exception(
+                    "Erro inesperado ao sincronizar GitHub para user_id=%s", current_user.id
+                )
                 details.append("GitHub: não foi possível consultar commits no momento.")
 
         if lc_integration is not None:
