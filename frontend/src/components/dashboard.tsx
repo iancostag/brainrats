@@ -21,6 +21,7 @@ import {
   fetchChallengeDetail,
   fetchChallengeFeed,
   fetchChallenges,
+  joinChallenge,
   registerRestDay,
   syncIntegrations,
   type ChallengeDetail,
@@ -29,6 +30,7 @@ import {
   type User,
 } from "@/lib/api";
 import { formatPointsLabel } from "@/lib/categories";
+import { buildChallengeInviteUrl, clearPendingInvite, getPendingInvite } from "@/lib/invite";
 import { sortLeaderboard, type LeaderboardSort } from "@/lib/leaderboard";
 import { getChallengeWeekDays, summarizeWeek } from "@/lib/week";
 
@@ -55,6 +57,8 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
   const [detailError, setDetailError] = useState<string | null>(null);
 
   const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [inviteNotice, setInviteNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [showRules, setShowRules] = useState(false);
   const [confirmRestDay, setConfirmRestDay] = useState(false);
   const [restingBusy, setRestingBusy] = useState(false);
@@ -144,7 +148,33 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
   }, []);
 
   useEffect(() => {
-    void loadChallenges();
+    const pendingInvite = getPendingInvite();
+    if (!pendingInvite) {
+      void loadChallenges();
+      return;
+    }
+
+    clearPendingInvite();
+    setTab("home");
+    void (async () => {
+      try {
+        const joined = await joinChallenge({ invite_code: pendingInvite });
+        setInviteNotice({
+          ok: true,
+          text: `Desafio "${joined.title}" aberto via link de convite.`,
+        });
+        await loadChallenges(joined.id);
+      } catch (err) {
+        setInviteNotice({
+          ok: false,
+          text:
+            err instanceof Error
+              ? `Convite ${pendingInvite}: ${err.message}`
+              : `Não foi possível abrir o convite ${pendingInvite}.`,
+        });
+        await loadChallenges();
+      }
+    })();
   }, [loadChallenges]);
 
   useEffect(() => {
@@ -209,9 +239,15 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
   }
 
   function handleCopyInvite(code: string) {
-    void navigator.clipboard.writeText(code);
+    void navigator.clipboard?.writeText(code);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 1800);
+  }
+
+  function handleCopyInviteLink(code: string) {
+    void navigator.clipboard?.writeText(buildChallengeInviteUrl(code));
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 1800);
   }
 
   async function handleLoadMoreFeed() {
@@ -358,6 +394,17 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
       streak={streakSnapshot}
       busy={loadingDetail || loadingChallenges}
     >
+      {inviteNotice && (
+        <div className="mb-5">
+          <Notice
+            tone={inviteNotice.ok ? "success" : "error"}
+            onDismiss={() => setInviteNotice(null)}
+          >
+            {inviteNotice.text}
+          </Notice>
+        </div>
+      )}
+
       {challengesError && (
         <div className="mb-5">
           <ErrorState message={challengesError} onRetry={() => void loadChallenges()} />
@@ -385,6 +432,8 @@ export function Dashboard({ user, onUserUpdated, onLogout }: DashboardProps) {
                 lastGain={lastGain}
                 copiedInvite={copiedCode}
                 onCopyInvite={() => handleCopyInvite(detail.challenge.invite_code)}
+                copiedLink={copiedLink}
+                onCopyInviteLink={() => handleCopyInviteLink(detail.challenge.invite_code)}
                 restOpen={confirmRestDay}
                 onToggleRest={() => setConfirmRestDay((prev) => !prev)}
                 hasIntegrations={hasLinkedIntegrations}

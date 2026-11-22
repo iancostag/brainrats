@@ -7,6 +7,7 @@ import {
   Copy,
   Flame,
   Info,
+  Link2,
   Plug,
   RefreshCw,
   Target,
@@ -35,6 +36,8 @@ interface ChallengeHeroProps {
 
   copiedInvite: boolean;
   onCopyInvite: () => void;
+  copiedLink?: boolean;
+  onCopyInviteLink?: () => void;
   restOpen: boolean;
   onToggleRest: () => void;
   hasIntegrations: boolean;
@@ -68,6 +71,8 @@ export function ChallengeHero({
   lastGain,
   copiedInvite,
   onCopyInvite,
+  copiedLink = false,
+  onCopyInviteLink,
   restOpen,
   onToggleRest,
   hasIntegrations,
@@ -284,6 +289,29 @@ export function ChallengeHero({
               </>
             )}
           </button>
+
+          {onCopyInviteLink && (
+            <button
+              type="button"
+              onClick={onCopyInviteLink}
+              aria-label={
+                copiedLink
+                  ? "Link do desafio copiado"
+                  : `Copiar link de convite do desafio ${challenge.title}`
+              }
+              className={shellBtn}
+            >
+              {copiedLink ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" /> Link copiado
+                </>
+              ) : (
+                <>
+                  <Link2 className="h-3.5 w-3.5" aria-hidden="true" /> Copiar link
+                </>
+              )}
+            </button>
+          )}
 
           {isMember && (
             <button

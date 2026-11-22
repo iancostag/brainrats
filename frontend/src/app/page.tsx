@@ -13,6 +13,7 @@ import {
   setStoredToken,
   type User,
 } from "@/lib/api";
+import { getPendingInvite, setPendingInvite } from "@/lib/invite";
 
 export default function HomePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -21,21 +22,37 @@ export default function HomePage() {
   const [sessionNotice, setSessionNotice] = useState<string | null>(null);
 
   const validateSession = useCallback(async () => {
+    let oauthNotice: string | null = null;
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const oauthToken = params.get("token");
       const oauthError = params.get("oauth_error");
+      const inviteParam = params.get("invite");
+
+      if (inviteParam && inviteParam.trim()) {
+        setPendingInvite(inviteParam);
+      }
+
       if (oauthToken) {
         setStoredToken(oauthToken);
         window.history.replaceState({}, "", window.location.pathname);
       } else if (oauthError) {
-        setSessionNotice("Não foi possível concluir o login com GitHub. Tente novamente.");
+        oauthNotice = "Não foi possível concluir o login com GitHub. Tente novamente.";
+        setSessionNotice(oauthNotice);
+        window.history.replaceState({}, "", window.location.pathname);
+      } else if (inviteParam) {
         window.history.replaceState({}, "", window.location.pathname);
       }
     }
 
+    const pendingInvite = getPendingInvite();
     const token = getStoredToken();
     if (!token) {
+      if (!oauthNotice && pendingInvite) {
+        setSessionNotice(
+          `Você recebeu um convite para um desafio (${pendingInvite}). Entre ou crie sua conta para abrir direto nele.`,
+        );
+      }
       setCheckingSession(false);
       return;
     }

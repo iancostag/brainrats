@@ -3,9 +3,11 @@
 import {
   ArrowRight,
   CalendarRange,
+  Check,
   ChevronDown,
   Globe,
   KeyRound,
+  Link2,
   Lock,
   Plus,
   Swords,
@@ -23,6 +25,7 @@ import {
   type Visibility,
 } from "@/lib/api";
 import { formatTimezoneLabel } from "@/lib/categories";
+import { buildChallengeInviteUrl } from "@/lib/invite";
 import { CategoryIcon } from "@/components/lane-badge";
 import { EmptyState, Notice, PageHeader } from "@/components/ui";
 
@@ -72,6 +75,7 @@ export function ChallengesTab({
   onRefreshChallenges,
 }: ChallengesTabProps) {
   const [inviteCode, setInviteCode] = useState("");
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
 
@@ -252,7 +256,28 @@ export function ChallengesTab({
           </div>
         </dl>
 
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              void navigator.clipboard?.writeText(buildChallengeInviteUrl(ch.invite_code));
+              setCopiedLinkId(ch.id);
+              setTimeout(() => {
+                setCopiedLinkId((prev) => (prev === ch.id ? null : prev));
+              }, 1800);
+            }}
+            className="btn btn-sm btn-secondary"
+          >
+            {copiedLinkId === ch.id ? (
+              <>
+                <Check className="h-3.5 w-3.5 text-emerald-700" aria-hidden="true" /> Link copiado
+              </>
+            ) : (
+              <>
+                <Link2 className="h-3.5 w-3.5" aria-hidden="true" /> Copiar link
+              </>
+            )}
+          </button>
           {ch.is_member ? (
             <button
               type="button"
