@@ -11,6 +11,7 @@ import {
   Settings,
   Swords,
   Trophy,
+  UserRound,
   type LucideIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -54,6 +55,7 @@ interface AppShellProps {
   tab: TabId;
   onNavigate: (tab: TabId) => void;
   user: User;
+  onOpenProfile?: () => void;
   onLogout: () => void;
   /** Resumo da ofensiva no desafio ativo; ausente quando o usuário não participa. */
   streak: StreakSnapshot | null;
@@ -93,6 +95,7 @@ export function AppShell({
   tab,
   onNavigate,
   user,
+  onOpenProfile,
   onLogout,
   streak,
   busy,
@@ -235,12 +238,21 @@ export function AppShell({
                   </div>
                 }
                 items={[
+                  ...(onOpenProfile
+                    ? [
+                        {
+                          label: "Meu perfil",
+                          icon: UserRound,
+                          onSelect: onOpenProfile,
+                        },
+                      ]
+                    : []),
                   {
                     label: "Configurações",
                     icon: Settings,
                     onSelect: () => onNavigate("settings"),
                   },
-                  { label: "Sair", icon: LogOut, tone: "danger", onSelect: onLogout },
+                  { label: "Sair", icon: LogOut, tone: "danger" as const, onSelect: onLogout },
                 ]}
               />
             </div>

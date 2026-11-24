@@ -23,6 +23,7 @@ class PublicProfileOut(BaseModel):
     display_name: str
     avatar_url: str | None
     bio: str | None
+    is_public_profile: bool = True
     total_studies: int
     total_active_days: int
     current_streak: int
@@ -53,9 +54,11 @@ def _compute_streaks(active_dates: set[date], today: date) -> tuple[int, int]:
     return current, longest
 
 
-async def _load_public_user_stats(db: AsyncSession, username: str) -> PublicProfileOut:
+async def _load_public_user_stats(
+    db: AsyncSession, username: str, *, allow_private: bool = False
+) -> PublicProfileOut:
     user = await db.scalar(select(User).where(User.username == username.strip().lower()))
-    if user is None or not user.is_public_profile:
+    if user is None or (not allow_private and not user.is_public_profile):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Perfil público não encontrado.",
@@ -109,6 +112,7 @@ async def _load_public_user_stats(db: AsyncSession, username: str) -> PublicProf
         display_name=user.display_name,
         avatar_url=user.avatar_url,
         bio=user.bio,
+        is_public_profile=bool(user.is_public_profile),
         total_studies=total_studies,
         total_active_days=len(by_day),
         current_streak=current_streak,

@@ -76,6 +76,7 @@ function Row({
   isMe,
   roomy,
   onNudge,
+  onOpenProfile,
 }: {
   entry: LeaderboardEntry;
   position: number;
@@ -84,6 +85,7 @@ function Row({
   isMe: boolean;
   roomy: boolean;
   onNudge?: (userId: string, displayName: string) => void;
+  onOpenProfile?: (username: string) => void;
 }) {
   const metric = primaryMetric(entry, sort, scoringMode);
   const canNudge = Boolean(onNudge && !isMe && entry.checked_in_today === false);
@@ -96,12 +98,34 @@ function Row({
       }`}
     >
       <PositionBadge position={position} />
-      {roomy && <Avatar name={entry.display_name} src={entry.avatar_url} size="sm" />}
+      {roomy &&
+        (onOpenProfile ? (
+          <button
+            type="button"
+            onClick={() => onOpenProfile(entry.username)}
+            aria-label={`Ver perfil de ${entry.display_name}`}
+            className="shrink-0 rounded-full transition-opacity hover:opacity-85"
+          >
+            <Avatar name={entry.display_name} src={entry.avatar_url} size="sm" />
+          </button>
+        ) : (
+          <Avatar name={entry.display_name} src={entry.avatar_url} size="sm" />
+        ))}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="truncate text-sm font-semibold text-ink-strong">
-            {entry.display_name}
-          </span>
+          {onOpenProfile ? (
+            <button
+              type="button"
+              onClick={() => onOpenProfile(entry.username)}
+              className="truncate text-left text-sm font-semibold text-ink-strong transition-colors hover:text-accent-text"
+            >
+              {entry.display_name}
+            </button>
+          ) : (
+            <span className="truncate text-sm font-semibold text-ink-strong">
+              {entry.display_name}
+            </span>
+          )}
           {isMe && (
             <span className="shrink-0 rounded bg-accent px-1.5 py-px text-[10px] font-bold text-white">
               você
@@ -157,6 +181,7 @@ interface ScoreboardProps {
   copiedInvite: boolean;
   onCopyInvite: () => void;
   onNudge?: (userId: string, displayName: string) => void;
+  onOpenProfile?: (username: string) => void;
   title?: string;
 }
 
@@ -172,6 +197,7 @@ export function Scoreboard({
   copiedInvite,
   onCopyInvite,
   onNudge,
+  onOpenProfile,
   title = "Placar Oficial",
 }: ScoreboardProps) {
   const roomy = entries.length <= 5;
@@ -216,6 +242,7 @@ export function Scoreboard({
                 isMe={entry.user_id === currentUserId}
                 roomy={roomy}
                 onNudge={onNudge}
+                onOpenProfile={onOpenProfile}
               />
             ))}
           </ol>
@@ -233,6 +260,7 @@ export function Scoreboard({
                   scoringMode={scoringMode}
                   isMe
                   roomy={false}
+                  onOpenProfile={onOpenProfile}
                 />
               </ol>
             </>
@@ -283,11 +311,13 @@ export function Podium({
   sort,
   scoringMode,
   currentUserId,
+  onOpenProfile,
 }: {
   entries: LeaderboardEntry[];
   sort: LeaderboardSort;
   scoringMode: ScoringMode;
   currentUserId: string;
+  onOpenProfile?: (username: string) => void;
 }) {
   const top = entries.slice(0, 3);
   if (top.length < 3) return null;
@@ -316,10 +346,21 @@ export function Podium({
               />
             </div>
             <div className="w-full min-w-0">
-              <p className="truncate text-sm font-bold text-ink-strong">
-                {entry.display_name}
-                {isMe && <span className="text-accent-text"> (você)</span>}
-              </p>
+              {onOpenProfile ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenProfile(entry.username)}
+                  className="w-full truncate text-sm font-bold text-ink-strong transition-colors hover:text-accent-text"
+                >
+                  {entry.display_name}
+                  {isMe && <span className="text-accent-text"> (você)</span>}
+                </button>
+              ) : (
+                <p className="truncate text-sm font-bold text-ink-strong">
+                  {entry.display_name}
+                  {isMe && <span className="text-accent-text"> (você)</span>}
+                </p>
+              )}
               <p className="text-xs text-ink-2">
                 <span className="font-score text-base text-ink-strong">{metric.value}</span>{" "}
                 {metric.unit}

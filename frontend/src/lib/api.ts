@@ -274,6 +274,7 @@ export interface PublicProfile {
   display_name: string;
   avatar_url: string | null;
   bio: string | null;
+  is_public_profile?: boolean;
   total_studies: number;
   total_active_days: number;
   current_streak: number;
@@ -865,6 +866,10 @@ export function unsubscribePush(endpoint: string): Promise<{ detail: string }> {
 
 export function fetchPublicProfile(username: string): Promise<PublicProfile> {
   return apiRequest<PublicProfile>(`/public/users/${encodeURIComponent(username)}`);
+}
+
+export function fetchMemberProfile(username: string): Promise<PublicProfile> {
+  return apiRequest<PublicProfile>(`/auth/profiles/${encodeURIComponent(username)}`);
 }
 
 export function getPublicBadgeSvgUrl(username: string): string {

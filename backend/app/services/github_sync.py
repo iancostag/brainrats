@@ -273,6 +273,37 @@ async def fetch_repo_commits_with_token(
         return commits
 
 
+async def fetch_recent_pushed_repos(
+    access_token: str,
+    *,
+    limit: int = 5,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> list[tuple[str, str]]:
+    """Return (full_name, default_branch) for recently pushed repos using OAuth token."""
+    try:
+        async with httpx.AsyncClient(timeout=6.0, transport=transport) as client:
+            resp = await client.get(
+                "https://api.github.com/user/repos",
+                params={
+                    "sort": "pushed",
+                    "per_page": limit,
+                    "affiliation": "owner,collaborator",
+                },
+                headers=_github_headers(access_token),
+            )
+            if resp.status_code != 200:
+                return []
+            repos: list[tuple[str, str]] = []
+            for item in resp.json():
+                full_name = str(item.get("full_name") or "").strip()
+                branch = str(item.get("default_branch") or "main").strip() or "main"
+                if full_name:
+                    repos.append((full_name, branch))
+            return repos
+    except httpx.HTTPError:
+        return []
+
+
 def _dedupe_commits(commits: list[dict]) -> list[dict]:
     seen: set[str] = set()
     unique: list[dict] = []
@@ -336,10 +367,26 @@ async def sync_github_integration_for_user(
         )
         commits = _dedupe_commits([*commits, *event_commits])
     elif oauth_token:
-        commits = await fetch_github_events_commits(
+        start_of_today = datetime.combine(
+            today_in_tz, time.min, tzinfo=ZoneInfo(challenge.timezone)
+        )
+        since_iso = start_of_today.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+        event_commits = await fetch_github_events_commits(
             gh_integration.external_username,
             access_token=oauth_token,
         )
+        repo_commits: list[dict] = []
+        for full_name, branch in await fetch_recent_pushed_repos(oauth_token):
+            repo_commits.extend(
+                await fetch_repo_commits_with_token(
+                    full_name,
+                    gh_integration.external_username,
+                    oauth_token,
+                    since_iso,
+                    branch=branch,
+                )
+            )
+        commits = _dedupe_commits([*repo_commits, *event_commits])
     else:
         commits = await public_fetcher(gh_integration.external_username)
 

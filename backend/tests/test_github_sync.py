@@ -309,3 +309,80 @@ async def test_oauth_monitored_repos_combines_default_branch_and_push_events(
         assert len(captured_since) == 1
 
     await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_oauth_sync_without_monitored_repos_queries_recent_pushed_repos(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db_file = tmp_path / "test_oauth_recent_repos.db"
+    engine = create_async_engine(f"sqlite+aiosqlite:///{db_file}", echo=False)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    async with session_factory() as session:
+        await seed_initial_data(session)
+
+    app = create_app()
+
+    async def override_get_db():
+        async with session_factory() as session:
+            yield session
+
+    app.dependency_overrides[get_db] = override_get_db
+    now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+    async def fake_events_commits(*_args, **_kwargs) -> list[dict]:
+        return []
+
+    async def fake_recent_repos(_token: str, **_kwargs) -> list[tuple[str, str]]:
+        return [("iancostag/brainrats", "main")]
+
+    async def fake_repo_commits(
+        full_name: str, _author: str, _token: str, _since_iso: str, *, branch: str | None = None
+    ) -> list[dict]:
+        assert full_name == "iancostag/brainrats"
+        assert branch == "main"
+        return [
+            {
+                "sha": "sha-recent-1",
+                "title": "[iancostag/brainrats] feat: realtime commit",
+                "repo": "iancostag/brainrats",
+                "url": "https://github.com/iancostag/brainrats/commit/sha-recent-1",
+                "created_at": now_iso,
+            }
+        ]
+
+    monkeypatch.setattr(github_sync, "fetch_github_events_commits", fake_events_commits)
+    monkeypatch.setattr(github_sync, "fetch_recent_pushed_repos", fake_recent_repos)
+    monkeypatch.setattr(github_sync, "fetch_repo_commits_with_token", fake_repo_commits)
+
+    with TestClient(app) as client:
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"username": "ian_recent", "github_username": "iancostag"},
+        )
+        assert login.status_code == 200
+        headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+        async with session_factory() as session:
+            user = await session.scalar(select(User).where(User.username == "ian_recent"))
+            assert user is not None
+            gh_int = await session.scalar(
+                select(UserIntegration).where(
+                    UserIntegration.user_id == user.id,
+                    UserIntegration.provider == "github",
+                )
+            )
+            assert gh_int is not None
+            gh_int.access_token_encrypted = encrypt_secret("gho_secret_token")
+            await session.commit()
+
+        resp = client.post("/api/v1/integrations/sync", headers=headers, json={"simulate": False})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["created_count"] == 1
+        assert data["created_checkins"][0]["title"] == "[iancostag/brainrats] feat: realtime commit"
+
+    await engine.dispose()

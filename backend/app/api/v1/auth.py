@@ -11,6 +11,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.public import PublicProfileOut, _load_public_user_stats
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.rate_limit import rate_limit
@@ -615,6 +616,39 @@ async def list_my_badges(
         )
     ).all()
     return [serialize_badge(b) for b in badges]
+
+
+@router.get("/profiles/{username}", response_model=PublicProfileOut)
+async def read_member_profile(
+    username: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PublicProfileOut:
+    """Return profile stats for self, public users, or teammates sharing a challenge."""
+    target = await db.scalar(select(User).where(User.username == username.strip().lower()))
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Perfil não encontrado.",
+        )
+    if target.id != current_user.id and not target.is_public_profile:
+        my_challenges = select(ChallengeMember.challenge_id).where(
+            ChallengeMember.user_id == current_user.id
+        )
+        shared = await db.scalar(
+            select(ChallengeMember.id)
+            .where(
+                ChallengeMember.user_id == target.id,
+                ChallengeMember.challenge_id.in_(my_challenges),
+            )
+            .limit(1)
+        )
+        if shared is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Perfil não encontrado ou privado.",
+            )
+    return await _load_public_user_stats(db, target.username, allow_private=True)
 
 
 @router.patch("/me", response_model=UserOut)

@@ -50,6 +50,7 @@ interface CheckinCardProps {
   scoringMode: ScoringMode;
   onUpdated: (updated: CheckIn) => void;
   onDeleted?: (checkinId: string) => void;
+  onOpenProfile?: (username: string) => void;
 }
 
 const REACTION_ITEMS: Array<{ type: ReactionType; emoji: string; label: string }> = [
@@ -73,6 +74,7 @@ export function CheckinCard({
   scoringMode,
   onUpdated,
   onDeleted,
+  onOpenProfile,
 }: CheckinCardProps) {
   const isAuthor = checkin.user_id === currentUserId;
 
@@ -254,7 +256,12 @@ export function CheckinCard({
         isInvalidated ? "bg-red-50/70" : "hover:bg-well/60"
       }`}
     >
-      <CheckinHeader checkin={checkin} pointsLabel={pointsLabel} isInvalidated={isInvalidated} />
+      <CheckinHeader
+        checkin={checkin}
+        pointsLabel={pointsLabel}
+        isInvalidated={isInvalidated}
+        onOpenProfile={onOpenProfile}
+      />
 
       {editing ? (
         <form onSubmit={handleSaveEdit} className="flex flex-col gap-2 sm:pl-[3.25rem]">
@@ -638,20 +645,43 @@ export function CheckinHeader({
   isInvalidated,
   sourceSuffix,
   scored,
+  onOpenProfile,
 }: {
   checkin: CheckIn;
   pointsLabel: string;
   isInvalidated: boolean;
   sourceSuffix?: string;
   scored?: boolean;
+  onOpenProfile?: (username: string) => void;
 }) {
   return (
     <div className="flex items-start gap-3">
-      <Avatar name={checkin.display_name} src={checkin.avatar_url} />
+      {onOpenProfile ? (
+        <button
+          type="button"
+          onClick={() => onOpenProfile(checkin.username)}
+          aria-label={`Ver perfil de ${checkin.display_name}`}
+          className="shrink-0 rounded-full transition-opacity hover:opacity-85"
+        >
+          <Avatar name={checkin.display_name} src={checkin.avatar_url} />
+        </button>
+      ) : (
+        <Avatar name={checkin.display_name} src={checkin.avatar_url} />
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <p className="min-w-0 truncate leading-6">
-            <span className="font-bold text-ink-strong">{checkin.display_name}</span>{" "}
+            {onOpenProfile ? (
+              <button
+                type="button"
+                onClick={() => onOpenProfile(checkin.username)}
+                className="font-bold text-ink-strong transition-colors hover:text-accent-text"
+              >
+                {checkin.display_name}
+              </button>
+            ) : (
+              <span className="font-bold text-ink-strong">{checkin.display_name}</span>
+            )}{" "}
             <span className="font-mono text-xs text-ink-muted">@{checkin.username}</span>
           </p>
           <PointsPill

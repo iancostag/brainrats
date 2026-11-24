@@ -16,6 +16,7 @@ interface AutoSyncGroupCardProps {
   scoringMode: ScoringMode;
   onUpdated: (updated: CheckIn) => void;
   onDeleted?: (checkinId: string) => void;
+  onOpenProfile?: (username: string) => void;
 }
 
 /** Quantos itens do lote aparecem na prévia recolhida. */
@@ -29,6 +30,7 @@ export function AutoSyncGroupCard({
   scoringMode,
   onUpdated,
   onDeleted,
+  onOpenProfile,
 }: AutoSyncGroupCardProps) {
   const [expanded, setExpanded] = useState(false);
   const listId = useId();
@@ -58,6 +60,7 @@ export function AutoSyncGroupCard({
         isInvalidated={allInvalidated}
         scored={totalPoints > 0}
         sourceSuffix=" · lote"
+        onOpenProfile={onOpenProfile}
       />
 
       <div className="flex flex-col gap-2.5 sm:pl-[3.25rem]">

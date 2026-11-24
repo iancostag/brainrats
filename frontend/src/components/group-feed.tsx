@@ -57,6 +57,7 @@ interface GroupFeedProps {
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
+  onOpenProfile?: (username: string) => void;
 }
 
 export function GroupFeed({
@@ -73,6 +74,7 @@ export function GroupFeed({
   hasMore,
   loadingMore,
   onLoadMore,
+  onOpenProfile,
 }: GroupFeedProps) {
   const reportedCount = useMemo(() => feed.filter((c) => c.reports_count > 0).length, [feed]);
 
@@ -125,6 +127,7 @@ export function GroupFeed({
                 scoringMode={scoringMode}
                 onUpdated={onUpdated}
                 onDeleted={onDeleted}
+                onOpenProfile={onOpenProfile}
               />
             ) : (
               <CheckinCard
@@ -136,6 +139,7 @@ export function GroupFeed({
                 scoringMode={scoringMode}
                 onUpdated={onUpdated}
                 onDeleted={onDeleted}
+                onOpenProfile={onOpenProfile}
               />
             ),
           )}

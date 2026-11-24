@@ -19,6 +19,7 @@ interface RankingTabProps {
   currentUserId: string;
   copiedInvite: boolean;
   onCopyInvite: () => void;
+  onOpenProfile?: (username: string) => void;
 }
 
 /** Ranking completo do desafio ativo: pódio (3+ atletas), lista inteira e regras de pontuação. */
@@ -32,6 +33,7 @@ export function RankingTab({
   currentUserId,
   copiedInvite,
   onCopyInvite,
+  onOpenProfile,
 }: RankingTabProps) {
   const sorted = sortLeaderboard(detail.leaderboard, sort);
   const scoringMode = detail.challenge.scoring_mode;
@@ -61,6 +63,7 @@ export function RankingTab({
                 sort={sort}
                 scoringMode={scoringMode}
                 currentUserId={currentUserId}
+                onOpenProfile={onOpenProfile}
               />
             </section>
           )}
@@ -74,6 +77,7 @@ export function RankingTab({
             inviteCode={detail.challenge.invite_code}
             copiedInvite={copiedInvite}
             onCopyInvite={onCopyInvite}
+            onOpenProfile={onOpenProfile}
           />
         </div>
 

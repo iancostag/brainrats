@@ -351,3 +351,33 @@ def test_profile_avatar_supports_unlocked_badge_and_github_fallback(
     )
     assert gh_back.status_code == 200
     assert gh_back.json()["avatar_url"] == "https://avatars.githubusercontent.com/u/583231?v=4"
+
+
+def test_member_profile_endpoint_respects_shared_challenge_privacy(
+    api_client: TestClient,
+) -> None:
+    alice = dev_login(api_client, "prof_alice")
+    bob = dev_login(api_client, "prof_bob")
+    stranger = dev_login(api_client, "prof_stranger")
+
+    ch = create_challenge(api_client, alice, "Grupo Fechado", visibility="private")
+    api_client.post(
+        "/api/v1/challenges/join",
+        headers=bob,
+        json={"invite_code": ch["invite_code"]},
+    )
+
+    # Own profile is always visible via /auth/profiles/{username}
+    assert api_client.get("/api/v1/auth/profiles/prof_alice", headers=alice).status_code == 200
+    # Teammate sharing a challenge can view even when is_public_profile=False
+    assert api_client.get("/api/v1/auth/profiles/prof_alice", headers=bob).status_code == 200
+    # Ensure stranger shares no challenges with prof_alice (dev_login auto-joins public default)
+    for item in api_client.get("/api/v1/challenges", headers=stranger).json():
+        if item.get("is_member"):
+            resp = api_client.delete(f"/api/v1/challenges/{item['id']}/leave", headers=stranger)
+            assert resp.status_code == 200
+
+    # Stranger outside the challenge cannot view private profile
+    assert api_client.get("/api/v1/auth/profiles/prof_alice", headers=stranger).status_code == 404
+    # Unauthenticated public endpoint still blocks private profile
+    assert api_client.get("/api/v1/public/users/prof_alice").status_code == 404

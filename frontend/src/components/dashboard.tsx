@@ -19,6 +19,7 @@ import { RulesPanel } from "@/components/rules-panel";
 import { Scoreboard } from "@/components/scoreboard";
 import { SettingsTab } from "@/components/settings-tab";
 import { EmptyState, ErrorState, Notice } from "@/components/ui";
+import { UserProfileModal } from "@/components/user-profile-modal";
 import {
   clearStoredToken,
   fetchChallengeDetail,
@@ -94,6 +95,7 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
   const [nudgeFeedback, setNudgeFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [lastGain, setLastGain] = useState<{ label: string; key: number } | null>(null);
   const [badgeRefreshKey, setBadgeRefreshKey] = useState(0);
+  const [profileUsername, setProfileUsername] = useState<string | null>(null);
 
   const [feedFilter, setFeedFilter] = useState<string>("all");
   const [hasMoreFeed, setHasMoreFeed] = useState(false);
@@ -510,6 +512,7 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
       tab={tab}
       onNavigate={switchTab}
       user={user}
+      onOpenProfile={() => setProfileUsername(user.username)}
       onLogout={handleLogout}
       streak={streakSnapshot}
       busy={loadingDetail || loadingChallenges}
@@ -751,6 +754,7 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
                     copiedInvite={copiedCode}
                     onCopyInvite={() => handleCopyInvite(detail.challenge.invite_code)}
                     onNudge={isMember ? (uid, name) => void handleNudge(uid, name) : undefined}
+                    onOpenProfile={setProfileUsername}
                   />
                   {isMember && (
                     <Milestones
@@ -780,6 +784,7 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
                     hasMore={hasMoreFeed}
                     loadingMore={loadingMoreFeed}
                     onLoadMore={() => void handleLoadMoreFeed()}
+                    onOpenProfile={setProfileUsername}
                   />
                 </div>
               </div>
@@ -803,6 +808,7 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
               currentUserId={user.id}
               copiedInvite={copiedCode}
               onCopyInvite={() => handleCopyInvite(detail.challenge.invite_code)}
+              onOpenProfile={setProfileUsername}
             />
           )))}
 
@@ -861,6 +867,15 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
           <Plus className="h-6 w-6" aria-hidden="true" />
         </button>
       )}
+      <UserProfileModal
+        username={profileUsername}
+        currentUsername={user.username}
+        onClose={() => setProfileUsername(null)}
+        onEditOwnProfile={() => {
+          setProfileUsername(null);
+          switchTab("settings");
+        }}
+      />
     </AppShell>
   );
 }
