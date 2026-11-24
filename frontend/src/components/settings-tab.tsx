@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 
+import { BadgeArtwork } from "@/components/badge-artwork";
 import { useTheme } from "@/components/theme-toggle";
 import { Avatar, Notice, PageHeader } from "@/components/ui";
 import {
@@ -30,6 +31,7 @@ import {
   deleteAccount,
   disconnectIntegration,
   fetchAuthProviders,
+  fetchMyBadges,
   fetchVapidPublicKey,
   getPublicBadgeSvgUrl,
   logoutAllSessions,
@@ -38,6 +40,7 @@ import {
   subscribePush,
   updateProfile,
   type User,
+  type UserBadge,
 } from "@/lib/api";
 
 interface SettingsTabProps {
@@ -88,6 +91,8 @@ export function SettingsTab({
   const [copiedBadge, setCopiedBadge] = useState(false);
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [badges, setBadges] = useState<UserBadge[]>([]);
+  const [avatarBusy, setAvatarBusy] = useState(false);
 
   const { theme, setTheme } = useTheme();
   const ghIntegration = user.integrations.find((i) => i.provider === "github");
@@ -97,7 +102,43 @@ export function SettingsTab({
     fetchAuthProviders()
       .then((p) => setGithubOAuthEnabled(p.github_oauth_enabled))
       .catch(() => {});
+    fetchMyBadges()
+      .then(setBadges)
+      .catch(() => {});
   }, []);
+
+  async function handleSelectGithubAvatar() {
+    setAvatarBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const updated = await updateProfile({ use_github_avatar: true });
+      setAvatarUrl(updated.avatar_url ?? "");
+      onUserUpdated(updated);
+      setMessage("Foto do GitHub aplicada ao perfil!");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível aplicar a foto do GitHub.");
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
+
+  async function handleSelectBadgeAvatar(badgeKey: string) {
+    const nextUrl = `/badges/${badgeKey}.png`;
+    setAvatarBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      const updated = await updateProfile({ avatar_url: nextUrl });
+      setAvatarUrl(updated.avatar_url ?? nextUrl);
+      onUserUpdated(updated);
+      setMessage("Conquista aplicada como foto de perfil!");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível aplicar a conquista.");
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
 
   async function handleSave(event: FormEvent) {
     event.preventDefault();
@@ -307,13 +348,69 @@ export function SettingsTab({
               <label className="field-label">
                 URL do avatar (opcional)
                 <input
-                  type="url"
+                  type="text"
                   value={avatarUrl}
                   onChange={(e) => setAvatarUrl(e.target.value)}
-                  placeholder="https://..."
+                  placeholder="https://... ou /badges/..."
                   className="field"
                 />
               </label>
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-2xl border border-lane bg-well p-3.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold text-ink-strong">Foto de perfil rápida</p>
+                  <p className="text-[11px] text-ink-2">
+                    Escolha usar sua foto do GitHub ou uma das conquistas que você já desbloqueou.
+                  </p>
+                </div>
+                {ghIntegration ? (
+                  <button
+                    type="button"
+                    disabled={avatarBusy}
+                    onClick={handleSelectGithubAvatar}
+                    className="btn btn-sm btn-secondary"
+                  >
+                    <Github className="h-3.5 w-3.5" aria-hidden="true" />
+                    Usar foto do GitHub
+                  </button>
+                ) : (
+                  <span className="text-[11px] text-ink-muted">
+                    Conecte o GitHub abaixo para usar sua foto do GitHub.
+                  </span>
+                )}
+              </div>
+
+              {badges.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {badges.map((badge) => {
+                    const badgePath = `/badges/${badge.badge_key}.png`;
+                    const selected = avatarUrl === badgePath;
+                    return (
+                      <button
+                        key={badge.badge_key}
+                        type="button"
+                        disabled={avatarBusy}
+                        onClick={() => handleSelectBadgeAvatar(badge.badge_key)}
+                        title={`Usar conquista "${badge.title}" como foto`}
+                        className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+                          selected
+                            ? "border-accent bg-accent/12 text-accent-text ring-1 ring-accent/30"
+                            : "border-lane bg-card text-ink-strong hover:border-grape/50"
+                        }`}
+                      >
+                        <BadgeArtwork badgeKey={badge.badge_key} icon={badge.icon} size="sm" />
+                        <span>{badge.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-[11px] text-ink-muted">
+                  Desbloqueie conquistas nos desafios para usá-las como foto de perfil.
+                </p>
+              )}
             </div>
 
             <label className="field-label">

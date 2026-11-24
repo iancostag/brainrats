@@ -48,7 +48,7 @@ from app.schemas.auth import (
     UserBadgeOut,
     UserOut,
 )
-from app.services.badges import serialize_badge
+from app.services.badges import BADGE_CATALOG, serialize_badge
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -628,8 +628,40 @@ async def update_me(
         current_user.display_name = payload.display_name.strip()
     if payload.bio is not None:
         current_user.bio = payload.bio.strip() or None
-    if payload.avatar_url is not None:
-        current_user.avatar_url = payload.avatar_url.strip() or None
+    if payload.use_github_avatar:
+        gh_integration = await db.scalar(
+            select(UserIntegration).where(
+                UserIntegration.user_id == current_user.id,
+                UserIntegration.provider == "github",
+            )
+        )
+        if gh_integration is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Conecte sua conta do GitHub antes de usar a foto do GitHub.",
+            )
+        gh_avatar, _ = await _fetch_github_profile(gh_integration.external_username)
+        current_user.avatar_url = (
+            gh_avatar or f"https://github.com/{gh_integration.external_username}.png"
+        )
+    elif payload.avatar_url is not None:
+        cleaned_avatar = payload.avatar_url.strip() or None
+        if cleaned_avatar and cleaned_avatar.startswith("/badges/"):
+            badge_key = cleaned_avatar.removeprefix("/badges/").removesuffix(".png")
+            unlocked = None
+            if badge_key in BADGE_CATALOG:
+                unlocked = await db.scalar(
+                    select(UserBadge.id).where(
+                        UserBadge.user_id == current_user.id,
+                        UserBadge.badge_key == badge_key,
+                    )
+                )
+            if unlocked is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Você só pode usar como foto uma conquista que já desbloqueou.",
+                )
+        current_user.avatar_url = cleaned_avatar
     if payload.is_public_profile is not None:
         current_user.is_public_profile = payload.is_public_profile
     if payload.notify_streak_reminder is not None:

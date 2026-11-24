@@ -31,6 +31,9 @@ class Settings(BaseSettings):
 
     upload_dir: str = "./uploads"
     max_upload_bytes: int = 5 * 1024 * 1024
+    supabase_url: str = ""
+    supabase_service_role_key: str = ""
+    supabase_storage_bucket: str = "evidence"
 
     cors_origins: str = "http://localhost:3000"
 
@@ -60,6 +63,11 @@ class Settings(BaseSettings):
         if not path.is_absolute():
             path = Path(__file__).resolve().parents[2] / path
         return path
+
+    @property
+    def supabase_storage_enabled(self) -> bool:
+        """Return True when Supabase Storage credentials are configured."""
+        return bool(self.supabase_url.strip() and self.supabase_service_role_key.strip())
 
     def validate_production_settings(self) -> None:
         """Fail fast at startup when production settings are insecure."""

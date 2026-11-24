@@ -24,6 +24,7 @@ ALGORITHM = "HS256"
 TOKEN_EXPIRE_DAYS = 7
 GITHUB_USERNAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,38}$")
 LOCAL_UPLOAD_PATH_RE = re.compile(r"^/api/v1/uploads/[a-f0-9]{32}\.(?:png|jpg|webp)$")
+BADGE_AVATAR_PATH_RE = re.compile(r"^/badges/[a-z0-9_]+\.png$")
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -72,15 +73,20 @@ def is_valid_github_username(username: str) -> bool:
 
 
 def validate_safe_http_url(
-    url: str | None, *, allow_local_upload: bool = False
+    url: str | None,
+    *,
+    allow_local_upload: bool = False,
+    allow_badge_avatar: bool = False,
 ) -> str | None:
-    """Validate that a URL uses http/https (or safe local upload path) to prevent XSS."""
+    """Validate that a URL uses http/https (or safe local paths) to prevent XSS."""
     if url is None:
         return None
     cleaned = url.strip()
     if not cleaned:
         return None
     if allow_local_upload and LOCAL_UPLOAD_PATH_RE.match(cleaned):
+        return cleaned
+    if allow_badge_avatar and BADGE_AVATAR_PATH_RE.match(cleaned):
         return cleaned
     parsed = urlparse(cleaned)
     if parsed.scheme.lower() not in ("http", "https") or not parsed.netloc:

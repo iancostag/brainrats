@@ -457,6 +457,7 @@ export function updateProfile(payload: {
   display_name?: string;
   bio?: string;
   avatar_url?: string;
+  use_github_avatar?: boolean;
   github_username?: string;
   leetcode_username?: string;
   target_challenge_id?: string | null;

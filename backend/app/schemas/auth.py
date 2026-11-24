@@ -86,6 +86,7 @@ class UpdateProfileRequest(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
     bio: str | None = Field(default=None, max_length=500)
     avatar_url: str | None = Field(default=None, max_length=500)
+    use_github_avatar: bool | None = None
     github_username: str | None = Field(default=None, max_length=100)
     leetcode_username: str | None = Field(default=None, max_length=100)
     target_challenge_id: uuid.UUID | None = None
@@ -99,7 +100,7 @@ class UpdateProfileRequest(BaseModel):
     def _validate_avatar_url(cls, value: str | None) -> str | None:
         if value is None or not value.strip():
             return value
-        return validate_safe_http_url(value, allow_local_upload=True)
+        return validate_safe_http_url(value, allow_local_upload=True, allow_badge_avatar=True)
 
 
 class GitHubOAuthLinkRequest(BaseModel):

@@ -8,7 +8,9 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+
+import { safeImageUrl } from "@/lib/url";
 
 /* ---------- Avatar ---------- */
 
@@ -33,12 +35,17 @@ export function Avatar({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
+  const resolvedSrc = safeImageUrl(src);
+  useEffect(() => {
+    setFailed(false);
+  }, [resolvedSrc]);
   const sizeClass = AVATAR_SIZES[size];
-  if (src && !failed) {
+  if (resolvedSrc && !failed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={src}
+        key={resolvedSrc}
+        src={resolvedSrc}
         alt=""
         onError={() => setFailed(true)}
         className={`${sizeClass} shrink-0 rounded-full object-cover ring-2 ${ring} ${className}`}

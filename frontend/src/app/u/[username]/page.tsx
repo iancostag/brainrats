@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { BadgeArtwork } from "@/components/badge-artwork";
 import { ConsistencyHeatmap } from "@/components/consistency-heatmap";
 import { CategoryIcon } from "@/components/lane-badge";
 import { Avatar, ErrorState, LoadingState } from "@/components/ui";
@@ -124,8 +125,9 @@ export default function PublicProfilePage() {
                     <li
                       key={badge.badge_key}
                       title={badge.description}
-                      className="rounded-full bg-grape/12 px-3 py-1 text-xs font-bold text-grape ring-1 ring-grape/25"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-grape/12 py-1 pr-3 pl-1.5 text-xs font-bold text-grape ring-1 ring-grape/25"
                     >
+                      <BadgeArtwork badgeKey={badge.badge_key} icon={badge.icon} size="sm" />
                       {badge.title}
                     </li>
                   ))}

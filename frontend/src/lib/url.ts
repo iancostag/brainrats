@@ -1,6 +1,7 @@
 import { getApiBaseUrl } from "@/lib/api";
 
 const LOCAL_UPLOAD_RE = /^\/api\/v1\/uploads\/[a-f0-9]{32}\.(?:png|jpg|webp)$/;
+const BADGE_AVATAR_RE = /^\/badges\/[a-z0-9_]+\.png$/;
 
 /**
  * Garante que links externos só aceitem http:// ou https://,
@@ -26,6 +27,9 @@ export function safeImageUrl(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const trimmed = raw.trim();
   if (!trimmed) return null;
+  if (BADGE_AVATAR_RE.test(trimmed)) {
+    return trimmed;
+  }
   if (LOCAL_UPLOAD_RE.test(trimmed)) {
     const apiBase = getApiBaseUrl();
     const origin = apiBase.replace(/\/api\/v1\/?$/, "");

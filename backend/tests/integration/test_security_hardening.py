@@ -187,6 +187,73 @@ def test_evidence_upload_validates_magic_bytes_and_blocks_path_traversal(
     assert traversal.status_code == 404
 
 
+def test_evidence_upload_uses_supabase_storage_when_configured(
+    api_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    headers = dev_login(api_client, "supabase_uploader")
+    captured: list[httpx.Request] = []
+
+    def storage_handler(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        return httpx.Response(200, json={"Key": "evidence/mock.png"})
+
+    real_async_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda *args, **kwargs: real_async_client(
+            *args, transport=httpx.MockTransport(storage_handler), **kwargs
+        ),
+    )
+    monkeypatch.setattr(settings, "supabase_url", "https://example.supabase.co/")
+    monkeypatch.setattr(settings, "supabase_storage_bucket", "evidence")
+    monkeypatch.setattr(settings, "supabase_service_role_key", "sb_secret_test_key")
+
+    minimal_png = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
+    ok = api_client.post(
+        "/api/v1/uploads/evidence",
+        headers=headers,
+        files={"file": ("print.png", minimal_png, "image/png")},
+    )
+    assert ok.status_code == 201, ok.text
+    image_url = ok.json()["image_url"]
+    assert image_url.startswith("https://example.supabase.co/storage/v1/object/public/evidence/")
+    assert image_url.endswith(".png")
+    assert len(captured) == 1
+    assert captured[0].headers["apikey"] == "sb_secret_test_key"
+    assert "authorization" not in captured[0].headers
+    assert captured[0].headers["content-type"] == "image/png"
+    assert captured[0].content == minimal_png
+
+    # Legacy JWT service_role key also sends Authorization: Bearer
+    monkeypatch.setattr(settings, "supabase_service_role_key", "eyJhbGciOiJIUzI1NiJ9.legacy")
+    ok_legacy = api_client.post(
+        "/api/v1/uploads/evidence",
+        headers=headers,
+        files={"file": ("print2.png", minimal_png, "image/png")},
+    )
+    assert ok_legacy.status_code == 201
+    assert captured[1].headers["authorization"] == "Bearer eyJhbGciOiJIUzI1NiJ9.legacy"
+
+    # Upstream error surfaces cleanly as 502
+    def failing_handler(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="internal storage error")
+
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda *args, **kwargs: real_async_client(
+            *args, transport=httpx.MockTransport(failing_handler), **kwargs
+        ),
+    )
+    failed = api_client.post(
+        "/api/v1/uploads/evidence",
+        headers=headers,
+        files={"file": ("print3.png", minimal_png, "image/png")},
+    )
+    assert failed.status_code == 502
+
+
 def test_github_webhook_validates_hmac_signature(
     api_client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -244,3 +311,43 @@ def test_duplicate_report_from_same_user_returns_409(api_client: TestClient) -> 
     )
     assert first.status_code == 200
     assert second.status_code == 409
+
+
+def test_profile_avatar_supports_unlocked_badge_and_github_fallback(
+    api_client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    headers = dev_login(api_client, "badge_avatar_user", github_username="octocat")
+    ch = create_challenge(api_client, headers, "Desafio Avatar")
+
+    # Locked badge must be rejected with 403
+    locked = api_client.patch(
+        "/api/v1/auth/me",
+        headers=headers,
+        json={"avatar_url": "/badges/first_checkin.png"},
+    )
+    assert locked.status_code == 403
+
+    # Unlock first_checkin by creating a valid check-in
+    create_checkin(api_client, headers, ch["id"], "Primeiro estudo para desbloquear")
+
+    unlocked = api_client.patch(
+        "/api/v1/auth/me",
+        headers=headers,
+        json={"avatar_url": "/badges/first_checkin.png"},
+    )
+    assert unlocked.status_code == 200
+    assert unlocked.json()["avatar_url"] == "/badges/first_checkin.png"
+
+    # Switch back to GitHub avatar using mocked GitHub profile fetch
+    async def mock_fetch_gh(_username: str) -> tuple[str | None, str | None]:
+        return "https://avatars.githubusercontent.com/u/583231?v=4", None
+
+    monkeypatch.setattr("app.api.v1.auth._fetch_github_profile", mock_fetch_gh)
+
+    gh_back = api_client.patch(
+        "/api/v1/auth/me",
+        headers=headers,
+        json={"use_github_avatar": True},
+    )
+    assert gh_back.status_code == 200
+    assert gh_back.json()["avatar_url"] == "https://avatars.githubusercontent.com/u/583231?v=4"
