@@ -647,7 +647,9 @@ async def update_me(
     elif payload.avatar_url is not None:
         cleaned_avatar = payload.avatar_url.strip() or None
         if cleaned_avatar and cleaned_avatar.startswith("/badges/"):
-            badge_key = cleaned_avatar.removeprefix("/badges/").removesuffix(".png")
+            badge_key = re.sub(
+                r"\.(?:png|jpg|webp)$", "", cleaned_avatar.removeprefix("/badges/")
+            )
             unlocked = None
             if badge_key in BADGE_CATALOG:
                 unlocked = await db.scalar(

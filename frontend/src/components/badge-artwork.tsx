@@ -45,7 +45,7 @@ export function BadgeArtwork({
   className?: string;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
-  const src = `/badges/${badgeKey}.png`;
+  const src = `/badges/${badgeKey}.jpg`;
 
   useEffect(() => {
     setImgFailed(false);

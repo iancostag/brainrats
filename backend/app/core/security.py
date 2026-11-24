@@ -24,7 +24,7 @@ ALGORITHM = "HS256"
 TOKEN_EXPIRE_DAYS = 7
 GITHUB_USERNAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,38}$")
 LOCAL_UPLOAD_PATH_RE = re.compile(r"^/api/v1/uploads/[a-f0-9]{32}\.(?:png|jpg|webp)$")
-BADGE_AVATAR_PATH_RE = re.compile(r"^/badges/[a-z0-9_]+\.png$")
+BADGE_AVATAR_PATH_RE = re.compile(r"^/badges/[a-z0-9_]+\.(?:png|jpg|webp)$")
 
 bearer_scheme = HTTPBearer(auto_error=False)
 

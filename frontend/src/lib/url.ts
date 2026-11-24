@@ -1,7 +1,7 @@
 import { getApiBaseUrl } from "@/lib/api";
 
 const LOCAL_UPLOAD_RE = /^\/api\/v1\/uploads\/[a-f0-9]{32}\.(?:png|jpg|webp)$/;
-const BADGE_AVATAR_RE = /^\/badges\/[a-z0-9_]+\.png$/;
+const BADGE_AVATAR_RE = /^\/badges\/[a-z0-9_]+\.(?:png|jpg|webp)$/;
 
 /**
  * Garante que links externos só aceitem http:// ou https://,

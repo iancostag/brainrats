@@ -124,7 +124,7 @@ export function SettingsTab({
   }
 
   async function handleSelectBadgeAvatar(badgeKey: string) {
-    const nextUrl = `/badges/${badgeKey}.png`;
+    const nextUrl = `/badges/${badgeKey}.jpg`;
     setAvatarBusy(true);
     setMessage(null);
     setError(null);
@@ -385,7 +385,7 @@ export function SettingsTab({
               {badges.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {badges.map((badge) => {
-                    const badgePath = `/badges/${badge.badge_key}.png`;
+                    const badgePath = `/badges/${badge.badge_key}.jpg`;
                     const selected = avatarUrl === badgePath;
                     return (
                       <button
