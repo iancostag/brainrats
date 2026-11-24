@@ -1,6 +1,23 @@
-import { CalendarCheck, Coffee, Flame, ListChecks, Medal, type LucideIcon } from "lucide-react";
+"use client";
 
-import type { LeaderboardEntry } from "@/lib/api";
+import {
+  Award,
+  BookOpen,
+  CalendarCheck,
+  Code2,
+  Coffee,
+  Flame,
+  Layers,
+  ListChecks,
+  Medal,
+  Moon,
+  Sparkles,
+  Trophy,
+  type LucideIcon,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { fetchMyBadges, type LeaderboardEntry, type UserBadge } from "@/lib/api";
 import type { WeekSummary } from "@/lib/week";
 
 interface Tile {
@@ -10,11 +27,18 @@ interface Tile {
   tone: string;
 }
 
-/**
- * Marcos do usuário no desafio, todos calculados a partir de dados reais
- * (placar e semana). Não existe sistema de conquistas no backend,
- * então nada aqui simula badges "desbloqueados".
- */
+const BADGE_ICONS: Record<string, LucideIcon> = {
+  sparkles: Sparkles,
+  flame: Flame,
+  trophy: Trophy,
+  layers: Layers,
+  code: Code2,
+  book: BookOpen,
+  moon: Moon,
+  calendar: CalendarCheck,
+  medal: Award,
+};
+
 export function Milestones({
   entry,
   position,
@@ -22,6 +46,7 @@ export function Milestones({
   summary,
   restRemaining,
   restPerWeek,
+  refreshKey = 0,
 }: {
   entry: LeaderboardEntry | undefined;
   position: number;
@@ -29,7 +54,22 @@ export function Milestones({
   summary: WeekSummary;
   restRemaining: number;
   restPerWeek: number;
+  refreshKey?: number;
 }) {
+  const [badges, setBadges] = useState<UserBadge[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    fetchMyBadges()
+      .then((list) => {
+        if (active) setBadges(list);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [refreshKey]);
+
   if (!entry) return null;
 
   const tiles: Tile[] = [
@@ -69,7 +109,10 @@ export function Milestones({
         {tiles.map((tile) => {
           const Icon = tile.icon;
           return (
-            <li key={tile.label} className="flex items-center gap-2.5 rounded-xl border border-lane bg-well p-2.5">
+            <li
+              key={tile.label}
+              className="flex items-center gap-2.5 rounded-xl border border-lane bg-well p-2.5"
+            >
               <span
                 className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${tile.tone}`}
               >
@@ -85,6 +128,28 @@ export function Milestones({
           );
         })}
       </ul>
+
+      {badges.length > 0 && (
+        <div className="mt-4 border-t border-lane-soft pt-3.5">
+          <p className="eyebrow mb-2">Conquistas desbloqueadas ({badges.length})</p>
+          <ul className="flex flex-wrap gap-1.5">
+            {badges.map((badge) => {
+              const Icon = BADGE_ICONS[badge.icon] ?? Award;
+              return (
+                <li
+                  key={badge.badge_key}
+                  title={badge.description}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-grape/12 px-2.5 py-1 text-[11px] font-bold text-grape ring-1 ring-grape/25"
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {badge.title}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {restPerWeek > 0 && (
         <p className="mt-3 flex items-start gap-2 rounded-xl border border-lane bg-card px-3 py-2.5 text-xs text-ink-3">
           <Coffee className="mt-px h-4 w-4 shrink-0 text-ink-2" aria-hidden="true" />

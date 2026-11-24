@@ -1,5 +1,6 @@
-const CACHE_VERSION = "brainrats-shell-v2";
-const RUNTIME_CACHE = "brainrats-runtime-v2";
+const CACHE_VERSION = "brainrats-shell-v3";
+const RUNTIME_CACHE = "brainrats-runtime-v3";
+const SENSITIVE_QUERY_KEYS = ["token", "oauth_code", "code", "state"];
 const SHELL_ASSETS = [
   "/",
   "/offline.html",
@@ -10,6 +11,10 @@ const SHELL_ASSETS = [
   "/logo-icon.jpg",
   "/logo-wordmark.png",
 ];
+
+function hasSensitiveParams(url) {
+  return SENSITIVE_QUERY_KEYS.some((key) => url.searchParams.has(key));
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -39,16 +44,57 @@ self.addEventListener("message", (event) => {
   }
 });
 
-async function networkFirstNavigation(request) {
+self.addEventListener("push", (event) => {
+  let payload = {
+    title: "BrainRats",
+    body: "Hora de registrar seu estudo de hoje!",
+    url: "/?tab=home",
+  };
+  if (event.data) {
+    try {
+      const parsed = event.data.json();
+      payload = { ...payload, ...parsed };
+    } catch {
+      payload.body = event.data.text() || payload.body;
+    }
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: "/icon-192.png",
+      badge: "/icon-192.png",
+      data: { url: payload.url || "/?tab=home" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || "/?tab=home";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsList) => {
+      for (const client of clientsList) {
+        if ("focus" in client) {
+          client.navigate(targetUrl).catch(() => {});
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(targetUrl);
+    }),
+  );
+});
+
+async function networkFirstNavigation(request, url) {
   try {
     const response = await fetch(request);
-    if (response && response.ok) {
+    if (response && response.ok && !hasSensitiveParams(url)) {
       const copy = response.clone();
-      caches.open(RUNTIME_CACHE).then((cache) => cache.put(request, copy)).catch(() => {});
+      const cacheKey = new Request(url.pathname);
+      caches.open(RUNTIME_CACHE).then((cache) => cache.put(cacheKey, copy)).catch(() => {});
     }
     return response;
   } catch {
-    const cachedExact = await caches.match(request);
+    const cachedExact = await caches.match(url.pathname);
     if (cachedExact) return cachedExact;
     const cachedRoot = await caches.match("/");
     if (cachedRoot) return cachedRoot;
@@ -94,9 +140,11 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(networkFirstNavigation(request));
+    event.respondWith(networkFirstNavigation(request, url));
     return;
   }
+
+  if (hasSensitiveParams(url)) return;
 
   if (url.pathname.startsWith("/_next/static/")) {
     event.respondWith(cacheFirstAsset(request));

@@ -1,26 +1,48 @@
 "use client";
 
-import { BookOpenCheck, Check, ChevronDown, PenLine, RefreshCw, Send } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-
 import {
-  createCheckin,
-  type CategoryConfig,
-  type CategorySlug,
-  type CheckIn,
-  type ScoringMode,
-} from "@/lib/api";
+  BookOpenCheck,
+  Check,
+  ChevronDown,
+  ImagePlus,
+  PenLine,
+  RefreshCw,
+  Send,
+  X,
+} from "lucide-react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ClipboardEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
+
+import { FocusTimer } from "@/components/focus-timer";
 import { CategoryIcon } from "@/components/lane-badge";
 import { Notice } from "@/components/ui";
+import {
+  ApiError,
+  createCheckin,
+  uploadEvidenceImage,
+  type CategoryConfig,
+  type CategorySlug,
+  type CheckInCreated,
+  type ScoringMode,
+} from "@/lib/api";
 import { CATEGORY_META, formatPointsLabel } from "@/lib/categories";
+import { enqueueOfflineCheckin } from "@/lib/offline-queue";
+import { safeImageUrl } from "@/lib/url";
 
 interface CheckinFormProps {
   challengeId: string;
   scoringMode: ScoringMode;
   categoryConfigs: CategoryConfig[];
-  /** Quantos outros desafios o usuário participa (recebem a cópia por padrão). */
   otherChallengesCount: number;
-  onCreated: (checkin: CheckIn) => void;
+  onCreated: (checkin: CheckInCreated) => void;
+  onPresenceChanged?: () => void;
 }
 
 export function CheckinForm({
@@ -29,6 +51,7 @@ export function CheckinForm({
   categoryConfigs,
   otherChallengesCount,
   onCreated,
+  onPresenceChanged,
 }: CheckinFormProps) {
   const enabledConfigs = categoryConfigs.filter((c) => c.is_enabled);
   const [categorySlug, setCategorySlug] = useState<CategorySlug>(
@@ -38,8 +61,9 @@ export function CheckinForm({
   const [showDetails, setShowDetails] = useState(false);
   const [description, setDescription] = useState("");
   const [evidenceUrl, setEvidenceUrl] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Metadados começam vazios: só vão para o backend se o usuário preencher.
   const [difficulty, setDifficulty] = useState<"" | "Easy" | "Medium" | "Hard">("");
   const [language, setLanguage] = useState("");
   const [repository, setRepository] = useState("");
@@ -53,9 +77,9 @@ export function CheckinForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  // Confirmação curta no próprio botão logo após publicar.
   const [justPublished, setJustPublished] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!justPublished) return;
@@ -99,6 +123,43 @@ export function CheckinForm({
     };
   }
 
+  async function handleImageFile(file: File) {
+    setError(null);
+    setUploadingImage(true);
+    try {
+      const res = await uploadEvidenceImage(file);
+      setImageUrl(res.image_url);
+      setShowDetails(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao enviar imagem.");
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (file) {
+      void handleImageFile(file);
+    }
+    event.target.value = "";
+  }
+
+  function handlePaste(event: ClipboardEvent<HTMLFormElement>) {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          event.preventDefault();
+          void handleImageFile(file);
+          break;
+        }
+      }
+    }
+  }
+
   async function submitCheckin() {
     if (!title.trim()) {
       setError("Informe o título da tarefa para publicar.");
@@ -108,18 +169,35 @@ export function CheckinForm({
     setError(null);
     setSuccessMessage(null);
     setSubmitting(true);
-    try {
-      const created = await createCheckin(challengeId, {
-        category_slug: categorySlug,
-        title: title.trim(),
-        description: description.trim() || undefined,
-        evidence_url: evidenceUrl.trim() || undefined,
-        metadata_json: buildMetadata(),
-        publish_to_all_challenges: canCrosspost && !onlyThisChallenge,
-      });
+
+    const payload = {
+      category_slug: categorySlug,
+      title: title.trim(),
+      description: description.trim() || undefined,
+      evidence_url: evidenceUrl.trim() || undefined,
+      image_url: imageUrl ?? undefined,
+      metadata_json: buildMetadata(),
+      publish_to_all_challenges: canCrosspost && !onlyThisChallenge,
+    };
+
+    if (typeof window !== "undefined" && !window.navigator.onLine) {
+      enqueueOfflineCheckin(challengeId, payload);
       setTitle("");
       setDescription("");
       setEvidenceUrl("");
+      setImageUrl(null);
+      setSuccessMessage("Sem conexão: check-in salvo na fila offline e será enviado automaticamente.");
+      setJustPublished(true);
+      setSubmitting(false);
+      return;
+    }
+
+    try {
+      const created = await createCheckin(challengeId, payload);
+      setTitle("");
+      setDescription("");
+      setEvidenceUrl("");
+      setImageUrl(null);
       const parts = [
         `Check-in publicado (${formatPointsLabel(
           created.points_awarded,
@@ -133,12 +211,29 @@ export function CheckinForm({
       if (created.skipped_challenges.length > 0) {
         parts.push(`Não foi para: ${created.skipped_challenges.join(", ")}.`);
       }
+      if (created.newly_unlocked_badges && created.newly_unlocked_badges.length > 0) {
+        parts.push(
+          `Nova(s) conquista(s) desbloqueada(s): ${created.newly_unlocked_badges.length}!`,
+        );
+      }
       setSuccessMessage(parts.join(" "));
       setJustPublished(true);
       onCreated(created);
       titleRef.current?.focus();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao registrar check-in.");
+      if (err instanceof ApiError && err.status === 0) {
+        enqueueOfflineCheckin(challengeId, payload);
+        setTitle("");
+        setDescription("");
+        setEvidenceUrl("");
+        setImageUrl(null);
+        setSuccessMessage(
+          "Servidor inacessível: check-in salvo na fila offline para envio assim que reconectar.",
+        );
+        setJustPublished(true);
+      } else {
+        setError(err instanceof Error ? err.message : "Erro ao registrar check-in.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -158,14 +253,16 @@ export function CheckinForm({
 
   const detailsLabel =
     categorySlug === "books"
-      ? "livro, páginas, notas, link"
+      ? "livro, páginas, notas, print, link"
       : categorySlug === "leetcode"
-        ? "linguagem, notas, link"
-        : "tempo, tema, notas, link";
+        ? "linguagem, notas, print, link"
+        : "tempo, tema, notas, print, link";
+  const previewImg = safeImageUrl(imageUrl);
 
   return (
     <form
       onSubmit={handleSubmit}
+      onPaste={handlePaste}
       aria-labelledby="checkin-form-title"
       className="card relative flex flex-col gap-4 overflow-hidden p-4 sm:p-5"
     >
@@ -173,24 +270,39 @@ export function CheckinForm({
         aria-hidden="true"
         className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-accent-bright via-gold to-grape"
       />
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-accent/12 text-accent-text">
             <BookOpenCheck className="h-5 w-5" aria-hidden="true" />
           </span>
           <div>
-            <h2 id="checkin-form-title" className="text-lg leading-tight font-extrabold tracking-tight text-ink-strong">
+            <h2
+              id="checkin-form-title"
+              className="text-lg leading-tight font-extrabold tracking-tight text-ink-strong"
+            >
               O que você estudou hoje?
             </h2>
             <p className="text-sm text-ink-2">Registre a atividade e mantenha o ritmo.</p>
           </div>
         </div>
-        <span className="hidden shrink-0 text-xs text-ink-2 md:inline">
-          <kbd className="rounded-md border border-lane bg-well px-1.5 py-0.5 font-mono text-[11px] text-ink-strong">
-            Ctrl+Enter
-          </kbd>{" "}
-          publica
-        </span>
+        <div className="flex items-center gap-3">
+          <FocusTimer
+            challengeId={challengeId}
+            categorySlug={categorySlug}
+            onPresenceChanged={onPresenceChanged}
+            onFinishMinutes={(minutes) => {
+              setDurationMinutes(String(minutes));
+              setShowDetails(true);
+              titleRef.current?.focus();
+            }}
+          />
+          <span className="hidden shrink-0 text-xs text-ink-2 md:inline">
+            <kbd className="rounded-md border border-lane bg-well px-1.5 py-0.5 font-mono text-[11px] text-ink-strong">
+              Ctrl+Enter
+            </kbd>{" "}
+            publica
+          </span>
+        </div>
       </div>
 
       <fieldset>
@@ -285,7 +397,7 @@ export function CheckinForm({
         </div>
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || uploadingImage}
           aria-live="polite"
           className={`btn min-h-12 px-6 text-base ${
             justPublished ? "bg-success text-shell hover:bg-success" : "btn-primary"
@@ -308,19 +420,38 @@ export function CheckinForm({
       </div>
 
       <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
-        <button
-          type="button"
-          aria-expanded={showDetails}
-          aria-controls="checkin-details"
-          onClick={() => setShowDetails((prev) => !prev)}
-          className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg text-xs font-semibold text-ink-2 transition-colors hover:text-accent-text"
-        >
-          <ChevronDown
-            className={`h-4 w-4 transition-transform ${showDetails ? "rotate-180" : ""}`}
-            aria-hidden="true"
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            aria-expanded={showDetails}
+            aria-controls="checkin-details"
+            onClick={() => setShowDetails((prev) => !prev)}
+            className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg text-xs font-semibold text-ink-2 transition-colors hover:text-accent-text"
+          >
+            <ChevronDown
+              className={`h-4 w-4 transition-transform ${showDetails ? "rotate-180" : ""}`}
+              aria-hidden="true"
+            />
+            {showDetails ? "Ocultar detalhes opcionais" : `Adicionar detalhes (${detailsLabel})`}
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleFileChange}
+            className="hidden"
           />
-          {showDetails ? "Ocultar detalhes opcionais" : `Adicionar detalhes (${detailsLabel})`}
-        </button>
+          <button
+            type="button"
+            disabled={uploadingImage}
+            onClick={() => fileInputRef.current?.click()}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg text-xs font-semibold text-ink-2 transition-colors hover:text-accent-text"
+          >
+            <ImagePlus className="h-3.5 w-3.5" aria-hidden="true" />
+            {uploadingImage ? "Enviando print..." : imageUrl ? "Trocar print" : "Anexar print (Ctrl+V)"}
+          </button>
+        </div>
 
         {canCrosspost && (
           <label className="flex min-h-9 w-fit items-center gap-2 text-xs text-ink-3">
@@ -457,7 +588,7 @@ export function CheckinForm({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Anotações, trechos de código ou o que você aprendeu..."
+              placeholder="Anotações em Markdown, trechos de código ou o que você aprendeu..."
               className="field bg-card py-2.5"
             />
           </label>
@@ -472,6 +603,21 @@ export function CheckinForm({
               className="field bg-card"
             />
           </label>
+
+          {previewImg && (
+            <div className="relative w-fit overflow-hidden rounded-xl border border-lane bg-card">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewImg} alt="Prévia da evidência anexada" className="max-h-40 w-auto" />
+              <button
+                type="button"
+                aria-label="Remover print anexado"
+                onClick={() => setImageUrl(null)}
+                className="absolute top-1.5 right-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full bg-shell/85 text-white hover:bg-shell"
+              >
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            </div>
+          )}
         </div>
       )}
 

@@ -177,4 +177,6 @@ def test_diary_filters_and_counts_only_valid_max_points_per_study(api_client: Te
         "total_entries": 0,
         "total_points": 0,
         "by_category": {},
+        "has_more": False,
+        "next_cursor": None,
     }

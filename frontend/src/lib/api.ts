@@ -11,6 +11,15 @@ export interface Integration {
   has_oauth_token?: boolean;
 }
 
+export interface UserBadge {
+  badge_key: string;
+  title: string;
+  description: string;
+  icon: string;
+  unlocked_at: string;
+  metadata_json: Record<string, unknown>;
+}
+
 export interface User {
   id: string;
   username: string;
@@ -20,6 +29,10 @@ export interface User {
   bio: string | null;
   last_challenge_id?: string | null;
   has_github_oauth?: boolean;
+  has_password?: boolean;
+  is_public_profile?: boolean;
+  notify_streak_reminder?: boolean;
+  notify_social?: boolean;
   integrations: Integration[];
 }
 
@@ -56,10 +69,27 @@ export interface ChallengeListItem {
   end_date: string | null;
   rest_days_per_week: number;
   daily_points_cap: number;
+  collective_weekly_goal?: number | null;
+  has_discord_webhook?: boolean;
   is_member: boolean;
   member_role: "admin" | "member" | null;
   members_count: number;
   created_at: string;
+}
+
+export interface ChallengePreview {
+  id: string;
+  title: string;
+  description: string | null;
+  visibility: Visibility;
+  scoring_mode: ScoringMode;
+  timezone: string;
+  start_date: string;
+  end_date: string | null;
+  rest_days_per_week: number;
+  daily_points_cap: number;
+  members_count: number;
+  is_member: boolean;
 }
 
 export interface CategoryConfig {
@@ -83,6 +113,25 @@ export interface LeaderboardEntry {
   checkins_count: number;
   current_streak: number;
   rest_days_used_this_week: number;
+  checked_in_today?: boolean;
+}
+
+export interface StudyPresence {
+  user_id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  category_slug: CategorySlug;
+  started_at: string;
+  expires_at: string;
+}
+
+export interface Nudge {
+  id: string;
+  sender_username: string;
+  sender_display_name: string;
+  nudge_date: string;
+  created_at: string;
 }
 
 export interface ChallengeDetail {
@@ -91,6 +140,28 @@ export interface ChallengeDetail {
   leaderboard: LeaderboardEntry[];
   user_rest_dates: string[];
   rest_days_remaining_this_week: number;
+  user_active_dates_this_week?: string[];
+  user_points_today?: number;
+  collective_week_checkins?: number;
+  active_studiers?: StudyPresence[];
+  pending_reports_count?: number;
+  received_nudges_today?: Nudge[];
+}
+
+export interface ChallengeSummary {
+  challenge_id: string;
+  challenge_title: string;
+  scoring_mode: ScoringMode;
+  start_date: string;
+  end_date: string | null;
+  total_checkins: number;
+  total_points: number;
+  participants_count: number;
+  top_category_slug: CategorySlug | null;
+  by_category: Record<string, number>;
+  podium: LeaderboardEntry[];
+  my_entry: LeaderboardEntry | null;
+  my_position: number | null;
 }
 
 export interface CommentOut {
@@ -126,6 +197,7 @@ export interface CheckIn {
   source: "manual" | "github" | "leetcode";
   metadata_json: Record<string, unknown>;
   evidence_url: string | null;
+  image_url?: string | null;
   points_awarded: number;
   status: "valid" | "invalidated";
   invalidation_reason: string | null;
@@ -145,7 +217,6 @@ export interface DiaryChallengeEntry {
   status: "valid" | "invalidated";
 }
 
-/** Estudo único no diário, com a pontuação em cada desafio onde foi publicado. */
 export interface DiaryItem extends CheckIn {
   challenges: DiaryChallengeEntry[];
 }
@@ -155,6 +226,61 @@ export interface DiaryResponse {
   total_entries: number;
   total_points: number;
   by_category: Record<string, number>;
+  has_more?: boolean;
+  next_cursor?: string | null;
+}
+
+export interface DiaryHeatmapDay {
+  study_date: string;
+  count: number;
+  top_category: CategorySlug | null;
+}
+
+export interface DiaryHeatmapResponse {
+  days: DiaryHeatmapDay[];
+  total_active_days: number;
+  current_global_streak: number;
+  longest_global_streak: number;
+}
+
+export interface BookShelfItem {
+  book_title: string;
+  total_pages: number;
+  sessions_count: number;
+  last_read_date: string;
+}
+
+export interface ReviewSuggestion {
+  checkin_id: string;
+  title: string;
+  category_slug: CategorySlug;
+  category_name: string;
+  study_date: string;
+  days_ago: number;
+  interval_label: string;
+  evidence_url: string | null;
+}
+
+export interface WeeklyRecapResponse {
+  start_date: string;
+  end_date: string;
+  total_studies: number;
+  by_category: Record<string, number>;
+  markdown: string;
+}
+
+export interface PublicProfile {
+  username: string;
+  display_name: string;
+  avatar_url: string | null;
+  bio: string | null;
+  total_studies: number;
+  total_active_days: number;
+  current_streak: number;
+  longest_streak: number;
+  by_category: Record<string, number>;
+  badges: UserBadge[];
+  heatmap: DiaryHeatmapDay[];
 }
 
 export interface SyncResponse {
@@ -213,7 +339,8 @@ export class ApiError extends Error {
 async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
   const headers = new Headers(init.headers);
-  if (!headers.has("Content-Type") && init.body) {
+  const isFormData = typeof FormData !== "undefined" && init.body instanceof FormData;
+  if (!isFormData && !headers.has("Content-Type") && init.body) {
     headers.set("Content-Type", "application/json");
   }
   if (token) {
@@ -258,10 +385,21 @@ export function getGithubOAuthUrl(): string {
 
 export function requestGithubOAuthLinkUrl(
   redirectTab: "integrations" | "settings" = "integrations",
+  includePrivateRepos = false,
 ): Promise<{ url: string }> {
   return apiRequest<{ url: string }>("/auth/github/link", {
     method: "POST",
-    body: JSON.stringify({ redirect_tab: redirectTab }),
+    body: JSON.stringify({
+      redirect_tab: redirectTab,
+      include_private_repos: includePrivateRepos,
+    }),
+  });
+}
+
+export function exchangeOAuthCode(code: string): Promise<AuthResponse> {
+  return apiRequest<AuthResponse>("/auth/oauth/exchange", {
+    method: "POST",
+    body: JSON.stringify({ code }),
   });
 }
 
@@ -311,13 +449,21 @@ export function fetchMe(): Promise<User> {
   return apiRequest<User>("/auth/me");
 }
 
+export function fetchMyBadges(): Promise<UserBadge[]> {
+  return apiRequest<UserBadge[]>("/auth/me/badges");
+}
+
 export function updateProfile(payload: {
   display_name?: string;
   bio?: string;
+  avatar_url?: string;
   github_username?: string;
   leetcode_username?: string;
   target_challenge_id?: string | null;
   last_challenge_id?: string | null;
+  is_public_profile?: boolean;
+  notify_streak_reminder?: boolean;
+  notify_social?: boolean;
 }): Promise<User> {
   return apiRequest<User>("/auth/me", {
     method: "PATCH",
@@ -325,8 +471,32 @@ export function updateProfile(payload: {
   });
 }
 
+export function changePassword(payload: {
+  current_password?: string;
+  new_password: string;
+}): Promise<AuthResponse> {
+  return apiRequest<AuthResponse>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function logoutAllSessions(): Promise<{ detail: string }> {
+  return apiRequest<{ detail: string }>("/auth/logout-all", { method: "POST" });
+}
+
+export function deleteAccount(): Promise<{ detail: string }> {
+  return apiRequest<{ detail: string }>("/auth/me", { method: "DELETE" });
+}
+
 export function fetchChallenges(): Promise<ChallengeListItem[]> {
   return apiRequest<ChallengeListItem[]>("/challenges");
+}
+
+export function previewChallengeInvite(inviteCode: string): Promise<ChallengePreview> {
+  return apiRequest<ChallengePreview>(
+    `/challenges/preview/${encodeURIComponent(inviteCode.trim().toUpperCase())}`,
+  );
 }
 
 export function createChallenge(payload: {
@@ -339,6 +509,8 @@ export function createChallenge(payload: {
   end_date?: string | null;
   rest_days_per_week: number;
   daily_points_cap: number;
+  collective_weekly_goal?: number | null;
+  discord_webhook_url?: string | null;
   category_configs: Array<{
     category_slug: CategorySlug;
     is_enabled: boolean;
@@ -350,6 +522,89 @@ export function createChallenge(payload: {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function updateChallenge(
+  challengeId: string,
+  payload: {
+    title?: string;
+    description?: string;
+    visibility?: Visibility;
+    end_date?: string | null;
+    clear_end_date?: boolean;
+    rest_days_per_week?: number;
+    daily_points_cap?: number;
+    collective_weekly_goal?: number | null;
+    clear_collective_weekly_goal?: boolean;
+    discord_webhook_url?: string | null;
+    category_configs?: Array<{
+      category_slug: CategorySlug;
+      is_enabled: boolean;
+      base_points: number;
+      daily_cap: number;
+    }>;
+  },
+): Promise<ChallengeListItem> {
+  return apiRequest<ChallengeListItem>(`/challenges/${challengeId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function regenerateInviteCode(challengeId: string): Promise<ChallengeListItem> {
+  return apiRequest<ChallengeListItem>(`/challenges/${challengeId}/invite-code/regenerate`, {
+    method: "POST",
+  });
+}
+
+export function leaveChallenge(challengeId: string): Promise<{ detail: string }> {
+  return apiRequest<{ detail: string }>(`/challenges/${challengeId}/leave`, {
+    method: "DELETE",
+  });
+}
+
+export function updateMemberRole(
+  challengeId: string,
+  userId: string,
+  role: "admin" | "member",
+): Promise<{ detail: string }> {
+  return apiRequest<{ detail: string }>(`/challenges/${challengeId}/members/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+  });
+}
+
+export function removeMember(challengeId: string, userId: string): Promise<{ detail: string }> {
+  return apiRequest<{ detail: string }>(`/challenges/${challengeId}/members/${userId}`, {
+    method: "DELETE",
+  });
+}
+
+export function setStudyPresence(
+  challengeId: string,
+  category_slug: CategorySlug,
+  duration_minutes: number,
+): Promise<StudyPresence> {
+  return apiRequest<StudyPresence>(`/challenges/${challengeId}/presence`, {
+    method: "POST",
+    body: JSON.stringify({ category_slug, duration_minutes }),
+  });
+}
+
+export function clearStudyPresence(challengeId: string): Promise<{ detail: string }> {
+  return apiRequest<{ detail: string }>(`/challenges/${challengeId}/presence`, {
+    method: "DELETE",
+  });
+}
+
+export function nudgeMember(challengeId: string, targetUserId: string): Promise<{ detail: string }> {
+  return apiRequest<{ detail: string }>(`/challenges/${challengeId}/nudge/${targetUserId}`, {
+    method: "POST",
+  });
+}
+
+export function fetchChallengeSummary(challengeId: string): Promise<ChallengeSummary> {
+  return apiRequest<ChallengeSummary>(`/challenges/${challengeId}/summary`);
 }
 
 export function joinChallenge(payload: {
@@ -383,10 +638,19 @@ export function fetchChallengeFeed(
   return apiRequest<CheckIn[]>(`/challenges/${challengeId}/feed${qs ? `?${qs}` : ""}`);
 }
 
-/** Check-in recém-criado, com os outros desafios que receberam a cópia. */
+export function fetchChallengeReports(
+  challengeId: string,
+  statusFilter: "pending" | "all" = "pending",
+): Promise<CheckIn[]> {
+  return apiRequest<CheckIn[]>(
+    `/challenges/${challengeId}/reports?status_filter=${statusFilter}`,
+  );
+}
+
 export interface CheckInCreated extends CheckIn {
   also_published_in: string[];
   skipped_challenges: string[];
+  newly_unlocked_badges?: string[];
 }
 
 export function createCheckin(
@@ -396,6 +660,7 @@ export function createCheckin(
     title: string;
     description?: string;
     evidence_url?: string;
+    image_url?: string;
     metadata_json: Record<string, unknown>;
     publish_to_all_challenges?: boolean;
   },
@@ -406,14 +671,33 @@ export function createCheckin(
   });
 }
 
+export function uploadEvidenceImage(file: File): Promise<{ image_url: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  return apiRequest<{ image_url: string }>("/uploads/evidence", {
+    method: "POST",
+    body: form,
+  });
+}
+
 export function updateCheckin(
   checkinId: string,
-  payload: { title?: string; description?: string },
+  payload: { title?: string; description?: string; evidence_url?: string; image_url?: string },
 ): Promise<CheckIn> {
   return apiRequest<CheckIn>(`/checkins/${checkinId}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+}
+
+export function deleteCheckin(
+  checkinId: string,
+  deleteCopies = false,
+): Promise<{ deleted_count: number }> {
+  return apiRequest<{ deleted_count: number }>(
+    `/checkins/${checkinId}?delete_copies=${deleteCopies ? "true" : "false"}`,
+    { method: "DELETE" },
+  );
 }
 
 export function toggleReaction(
@@ -431,6 +715,10 @@ export function addComment(checkinId: string, content: string): Promise<CheckIn>
     method: "POST",
     body: JSON.stringify({ content }),
   });
+}
+
+export function deleteComment(commentId: string): Promise<CheckIn> {
+  return apiRequest<CheckIn>(`/comments/${commentId}`, { method: "DELETE" });
 }
 
 export function reportCheckin(checkinId: string, reason: string): Promise<CheckIn> {
@@ -458,6 +746,8 @@ export function fetchDiary(params: {
   source?: string;
   date_from?: string;
   date_to?: string;
+  before?: string;
+  limit?: number;
 }): Promise<DiaryResponse> {
   const search = new URLSearchParams();
   if (params.q) search.set("q", params.q);
@@ -466,8 +756,59 @@ export function fetchDiary(params: {
   if (params.source) search.set("source", params.source);
   if (params.date_from) search.set("date_from", params.date_from);
   if (params.date_to) search.set("date_to", params.date_to);
+  if (params.before) search.set("before", params.before);
+  if (params.limit) search.set("limit", String(params.limit));
   const qs = search.toString();
   return apiRequest<DiaryResponse>(`/diary${qs ? `?${qs}` : ""}`);
+}
+
+export function fetchDiaryHeatmap(daysBack = 365): Promise<DiaryHeatmapResponse> {
+  return apiRequest<DiaryHeatmapResponse>(`/diary/heatmap?days_back=${daysBack}`);
+}
+
+export function fetchDiaryBooks(): Promise<BookShelfItem[]> {
+  return apiRequest<BookShelfItem[]>("/diary/books");
+}
+
+export function fetchDiaryReviews(): Promise<ReviewSuggestion[]> {
+  return apiRequest<ReviewSuggestion[]>("/diary/reviews");
+}
+
+export function logDiaryReview(
+  checkinId: string,
+  action: "reviewed" | "dismissed" = "reviewed",
+): Promise<{ detail: string }> {
+  return apiRequest<{ detail: string }>(`/diary/reviews/${checkinId}`, {
+    method: "POST",
+    body: JSON.stringify({ action }),
+  });
+}
+
+export function fetchWeeklyRecap(): Promise<WeeklyRecapResponse> {
+  return apiRequest<WeeklyRecapResponse>("/diary/weekly-recap");
+}
+
+export async function downloadDiaryExport(format: "markdown" | "json" | "csv"): Promise<void> {
+  const token = getStoredToken();
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const resp = await fetch(`${getApiBaseUrl()}/diary/export?format=${format}`, {
+    headers,
+    cache: "no-store",
+  });
+  if (!resp.ok) {
+    throw new ApiError("Não foi possível exportar o diário.", resp.status);
+  }
+  const blob = await resp.blob();
+  const ext = format === "markdown" ? "md" : format;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `brainrats-diario.${ext}`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 export function fetchGithubRepos(): Promise<GitHubRepoItem[]> {
@@ -480,6 +821,7 @@ export function saveMonitoredRepos(payload: {
     github_repo_id: number;
     full_name: string;
     default_branch: string;
+    private?: boolean;
   }>;
 }): Promise<GitHubRepoItem[]> {
   return apiRequest<GitHubRepoItem[]>("/integrations/github/repos", {
@@ -496,4 +838,34 @@ export function syncIntegrations(payload: {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export function fetchVapidPublicKey(): Promise<{ enabled: boolean; public_key: string }> {
+  return apiRequest<{ enabled: boolean; public_key: string }>("/push/vapid-public-key");
+}
+
+export function subscribePush(payload: {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}): Promise<{ detail: string }> {
+  return apiRequest<{ detail: string }>("/push/subscribe", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function unsubscribePush(endpoint: string): Promise<{ detail: string }> {
+  return apiRequest<{ detail: string }>("/push/subscribe", {
+    method: "DELETE",
+    body: JSON.stringify({ endpoint }),
+  });
+}
+
+export function fetchPublicProfile(username: string): Promise<PublicProfile> {
+  return apiRequest<PublicProfile>(`/public/users/${encodeURIComponent(username)}`);
+}
+
+export function getPublicBadgeSvgUrl(username: string): string {
+  return `${getApiBaseUrl()}/public/users/${encodeURIComponent(username)}/badge.svg`;
 }

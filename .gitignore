@@ -30,10 +30,11 @@ coverage/
 .env.*.local
 !.env.example
 
-# Local SQLite databases
+# Local SQLite databases & uploads
 *.db
 *.sqlite
 *.sqlite3
+backend/uploads/
 
 # OS / IDE
 .DS_Store

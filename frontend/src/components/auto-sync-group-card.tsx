@@ -6,6 +6,7 @@ import { useId, useState } from "react";
 import { CheckinCard, CheckinHeader } from "@/components/checkin-card";
 import type { CheckIn, ScoringMode } from "@/lib/api";
 import { formatPointsLabel } from "@/lib/categories";
+import { safeExternalUrl } from "@/lib/url";
 
 interface AutoSyncGroupCardProps {
   items: CheckIn[];
@@ -14,15 +15,12 @@ interface AutoSyncGroupCardProps {
   isMember: boolean;
   scoringMode: ScoringMode;
   onUpdated: (updated: CheckIn) => void;
+  onDeleted?: (checkinId: string) => void;
 }
 
 /** Quantos itens do lote aparecem na prévia recolhida. */
 const PREVIEW_LIMIT = 5;
 
-/**
- * Lote de check-ins sincronizados (mesmo autor, origem e dia).
- * A prévia lista títulos e pontos; "Ver detalhes" abre cada item com reações, comentários e ações.
- */
 export function AutoSyncGroupCard({
   items,
   currentUserId,
@@ -30,6 +28,7 @@ export function AutoSyncGroupCard({
   isMember,
   scoringMode,
   onUpdated,
+  onDeleted,
 }: AutoSyncGroupCardProps) {
   const [expanded, setExpanded] = useState(false);
   const listId = useId();
@@ -84,50 +83,53 @@ export function AutoSyncGroupCard({
             id={listId}
             className="divide-y divide-lane-soft overflow-hidden rounded-xl bg-well ring-1 ring-lane-soft"
           >
-            {preview.map((item) => (
-              <li
-                key={item.id}
-                className="flex items-center justify-between gap-2 px-3 py-2 text-xs"
-              >
-                <div className="flex min-w-0 items-center gap-1">
+            {preview.map((item) => {
+              const safeUrl = safeExternalUrl(item.evidence_url);
+              return (
+                <li
+                  key={item.id}
+                  className="flex items-center justify-between gap-2 px-3 py-2 text-xs"
+                >
+                  <div className="flex min-w-0 items-center gap-1">
+                    <span
+                      className={`truncate font-medium ${
+                        item.status === "invalidated"
+                          ? "text-red-800 line-through"
+                          : "text-ink-strong"
+                      }`}
+                    >
+                      {item.title}
+                    </span>
+                    {safeUrl && (
+                      <a
+                        href={safeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Abrir link de ${item.title}`}
+                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-link transition-colors hover:bg-lane-soft"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                      </a>
+                    )}
+                  </div>
                   <span
-                    className={`truncate font-medium ${
-                      item.status === "invalidated"
-                        ? "text-red-800 line-through"
-                        : "text-ink-strong"
+                    className={`shrink-0 font-score text-sm ${
+                      item.status === "valid" && item.points_awarded > 0
+                        ? "text-accent-strong"
+                        : "text-ink-muted"
                     }`}
                   >
-                    {item.title}
+                    {item.status === "invalidated"
+                      ? "Invalidado"
+                      : scoringMode === "checkin"
+                        ? item.points_awarded > 0
+                          ? "+1 chk"
+                          : "0 chk"
+                        : `+${item.points_awarded} pts`}
                   </span>
-                  {item.evidence_url && (
-                    <a
-                      href={item.evidence_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label={`Abrir link de ${item.title}`}
-                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-link transition-colors hover:bg-lane-soft"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                    </a>
-                  )}
-                </div>
-                <span
-                  className={`shrink-0 font-score text-sm ${
-                    item.status === "valid" && item.points_awarded > 0
-                      ? "text-accent-strong"
-                      : "text-ink-muted"
-                  }`}
-                >
-                  {item.status === "invalidated"
-                    ? "Invalidado"
-                    : scoringMode === "checkin"
-                      ? item.points_awarded > 0
-                        ? "+1 chk"
-                        : "0 chk"
-                      : `+${item.points_awarded} pts`}
-                </span>
-              </li>
-            ))}
+                </li>
+              );
+            })}
             {hiddenInPreview > 0 && (
               <li className="px-3 py-2 text-xs font-medium text-ink-2">
                 e mais {hiddenInPreview} {hiddenInPreview === 1 ? "item" : "itens"} em “Ver
@@ -149,6 +151,7 @@ export function AutoSyncGroupCard({
                 isMember={isMember}
                 scoringMode={scoringMode}
                 onUpdated={onUpdated}
+                onDeleted={onDeleted}
               />
             ))}
           </div>

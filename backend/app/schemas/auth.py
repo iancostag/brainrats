@@ -2,7 +2,9 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.core.security import validate_safe_http_url
 
 
 class AuthProvidersResponse(BaseModel):
@@ -32,12 +34,30 @@ class PasswordLoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
 
 
+class OAuthExchangeRequest(BaseModel):
+    code: str = Field(min_length=16, max_length=200)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str | None = Field(default=None, max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
+
+
 class IntegrationOut(BaseModel):
     provider: Literal["github", "leetcode"]
     external_username: str
     target_challenge_id: uuid.UUID | None
     last_synced_at: datetime | None
     has_oauth_token: bool = False
+
+
+class UserBadgeOut(BaseModel):
+    badge_key: str
+    title: str
+    description: str
+    icon: str
+    unlocked_at: datetime
+    metadata_json: dict = Field(default_factory=dict)
 
 
 class UserOut(BaseModel):
@@ -49,6 +69,10 @@ class UserOut(BaseModel):
     bio: str | None
     last_challenge_id: uuid.UUID | None = None
     has_github_oauth: bool = False
+    has_password: bool = False
+    is_public_profile: bool = False
+    notify_streak_reminder: bool = False
+    notify_social: bool = True
     integrations: list[IntegrationOut] = Field(default_factory=list)
 
 
@@ -61,14 +85,26 @@ class AuthResponse(BaseModel):
 class UpdateProfileRequest(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
     bio: str | None = Field(default=None, max_length=500)
+    avatar_url: str | None = Field(default=None, max_length=500)
     github_username: str | None = Field(default=None, max_length=100)
     leetcode_username: str | None = Field(default=None, max_length=100)
     target_challenge_id: uuid.UUID | None = None
     last_challenge_id: uuid.UUID | None = None
+    is_public_profile: bool | None = None
+    notify_streak_reminder: bool | None = None
+    notify_social: bool | None = None
+
+    @field_validator("avatar_url")
+    @classmethod
+    def _validate_avatar_url(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return value
+        return validate_safe_http_url(value, allow_local_upload=True)
 
 
 class GitHubOAuthLinkRequest(BaseModel):
     redirect_tab: Literal["integrations", "settings"] = "integrations"
+    include_private_repos: bool = False
 
 
 class GitHubOAuthLinkResponse(BaseModel):
@@ -87,6 +123,7 @@ class MonitoredRepoSelection(BaseModel):
     github_repo_id: int
     full_name: str
     default_branch: str = "main"
+    private: bool = False
 
 
 class MonitoredReposUpdateRequest(BaseModel):

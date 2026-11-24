@@ -1,5 +1,6 @@
 import uuid
 from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -21,11 +22,14 @@ from app.schemas.checkin import (
     ReactionToggleRequest,
     ReportCreateRequest,
 )
+from app.services.badges import evaluate_user_badges
 from app.services.checkins import (
     hydrate_checkins,
     publish_checkin,
     re_evaluate_checkin_mode_points_after_invalidation,
 )
+from app.services.outbound_webhooks import dispatch_challenge_webhook
+from app.services.push import send_push_to_user
 from app.services.scoring import compute_study_date
 
 # Prefixo do id compartilhado pelas cópias de um check-in manual publicado em vários desafios.
@@ -146,7 +150,6 @@ async def create_checkin(
     skipped: list[str] = []
     if payload.publish_to_all_challenges:
         others, skipped = await _crosspost_targets(db, challenge, current_user.id, category)
-    # As cópias compartilham um id: o diário mostra um item só e a edição vale para todas.
     shared_id = f"{MANUAL_CROSSPOST_PREFIX}{uuid.uuid4().hex}" if others else None
 
     created: list[CheckIn] = []
@@ -161,19 +164,44 @@ async def create_checkin(
             source="manual",
             metadata_json=payload.metadata_json,
             evidence_url=payload.evidence_url,
+            image_url=payload.image_url,
             external_event_id=shared_id,
         )
         assert checkin is not None
         created.append(checkin)
 
-    await db.commit()
     primary = created[0]
+    unlocked_badges = await evaluate_user_badges(
+        db,
+        user_id=current_user.id,
+        challenge=challenge,
+        new_checkin=primary,
+        category_slug=category.slug,
+    )
+
+    await db.commit()
     await db.refresh(primary)
+
+    if challenge.discord_webhook_url:
+        pts_text = (
+            "+1 check-in"
+            if challenge.scoring_mode == "checkin"
+            else f"+{primary.points_awarded} pts"
+        )
+        await dispatch_challenge_webhook(
+            challenge.discord_webhook_url,
+            message=(
+                f"**{current_user.display_name}** (@{current_user.username}) publicou em "
+                f"**{challenge.title}**: [{category.name}] {primary.title} ({pts_text})"
+            ),
+        )
+
     out = await _load_single_checkin_out(db, primary, current_user.id, membership.role == "admin")
     return CheckInCreatedOut(
         **out.model_dump(),
         also_published_in=[c.title for c in others],
         skipped_challenges=skipped,
+        newly_unlocked_badges=unlocked_badges,
     )
 
 
@@ -213,6 +241,38 @@ async def get_challenge_feed(
     return await hydrate_checkins(db, list(checkins), current_user.id, admin_ids)
 
 
+@router.get("/challenges/{challenge_id}/reports", response_model=list[CheckInOut])
+async def list_challenge_reports(
+    challenge_id: uuid.UUID,
+    status_filter: Literal["pending", "all"] = Query(default="pending"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[CheckInOut]:
+    """Dedicated moderation queue listing reported check-ins for challenge admins."""
+    challenge, membership = await _require_membership(db, challenge_id, current_user.id)
+    if membership.role != "admin" and challenge.created_by != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas admins do desafio podem acessar a fila de denúncias.",
+        )
+
+    subq = select(CheckInReport.checkin_id).distinct()
+    if status_filter == "pending":
+        subq = subq.where(CheckInReport.status == "pending")
+
+    checkins = list(
+        (
+            await db.scalars(
+                select(CheckIn)
+                .where(CheckIn.challenge_id == challenge.id, CheckIn.id.in_(subq))
+                .order_by(CheckIn.created_at.desc())
+                .limit(100)
+            )
+        ).all()
+    )
+    return await hydrate_checkins(db, checkins, current_user.id, {challenge.id})
+
+
 @router.patch("/checkins/{checkin_id}", response_model=CheckInOut)
 async def update_checkin(
     checkin_id: uuid.UUID,
@@ -220,7 +280,7 @@ async def update_checkin(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> CheckInOut:
-    """Allow the author to edit title and free description (useful for auto-synced posts)."""
+    """Allow the author to edit title, free description, and evidence links."""
     checkin = await _get_checkin_or_404(db, checkin_id)
     if checkin.user_id != current_user.id:
         raise HTTPException(
@@ -228,7 +288,6 @@ async def update_checkin(
             detail="Você só pode editar seus próprios check-ins.",
         )
 
-    # Cópias do mesmo check-in manual em outros desafios recebem a mesma edição.
     copies = [checkin]
     if (
         checkin.source == "manual"
@@ -252,6 +311,10 @@ async def update_checkin(
             copy.title = payload.title.strip()
         if payload.description is not None:
             copy.description = payload.description.strip() or None
+        if payload.evidence_url is not None:
+            copy.evidence_url = payload.evidence_url
+        if payload.image_url is not None:
+            copy.image_url = payload.image_url
         copy.search_vector = f"{copy.title} {copy.description or ''}".strip()
 
     await db.commit()
@@ -260,6 +323,55 @@ async def update_checkin(
     _, membership = await _get_challenge_and_membership(db, checkin.challenge_id, current_user.id)
     is_admin = membership is not None and membership.role == "admin"
     return await _load_single_checkin_out(db, checkin, current_user.id, is_admin)
+
+
+@router.delete("/checkins/{checkin_id}", status_code=status.HTTP_200_OK)
+async def delete_checkin(
+    checkin_id: uuid.UUID,
+    delete_copies: bool = Query(default=False),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, int]:
+    """Delete the author's check-in and promote another daily check-in in checkin mode if needed."""
+    checkin = await _get_checkin_or_404(db, checkin_id)
+    if checkin.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você só pode excluir seus próprios check-ins.",
+        )
+
+    targets = [checkin]
+    if (
+        delete_copies
+        and checkin.source == "manual"
+        and checkin.external_event_id
+        and checkin.external_event_id.startswith(MANUAL_CROSSPOST_PREFIX)
+    ):
+        targets = list(
+            (
+                await db.scalars(
+                    select(CheckIn).where(
+                        CheckIn.user_id == current_user.id,
+                        CheckIn.source == "manual",
+                        CheckIn.external_event_id == checkin.external_event_id,
+                    )
+                )
+            ).all()
+        )
+
+    challenge_ids = {item.challenge_id for item in targets}
+    challenges_by_id = {
+        ch.id: ch
+        for ch in (await db.scalars(select(Challenge).where(Challenge.id.in_(challenge_ids)))).all()
+    }
+    for item in targets:
+        ch = challenges_by_id.get(item.challenge_id)
+        if ch is not None and item.status == "valid":
+            await re_evaluate_checkin_mode_points_after_invalidation(db, ch, item)
+        await db.delete(item)
+
+    await db.commit()
+    return {"deleted_count": len(targets)}
 
 
 @router.post("/checkins/{checkin_id}/reactions", response_model=CheckInOut)
@@ -314,8 +426,43 @@ async def add_comment(
             content=payload.content.strip(),
         )
     )
+    if checkin.user_id != current_user.id:
+        author = await db.scalar(select(User).where(User.id == checkin.user_id))
+        if author is not None and author.notify_social:
+            await send_push_to_user(
+                db,
+                user_id=author.id,
+                title=f"Novo comentário em {challenge.title}",
+                body=f"{current_user.display_name}: {payload.content.strip()[:120]}",
+                url="/?tab=home",
+            )
     await db.commit()
     is_admin = membership.role == "admin" or challenge.created_by == current_user.id
+    return await _load_single_checkin_out(db, checkin, current_user.id, is_admin)
+
+
+@router.delete("/comments/{comment_id}", response_model=CheckInOut)
+async def delete_comment(
+    comment_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> CheckInOut:
+    """Allow the comment author or challenge admin to delete a comment."""
+    comment = await db.scalar(select(CheckInComment).where(CheckInComment.id == comment_id))
+    if comment is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Comentário não encontrado."
+        )
+    checkin = await _get_checkin_or_404(db, comment.checkin_id)
+    challenge, membership = await _require_membership(db, checkin.challenge_id, current_user.id)
+    is_admin = membership.role == "admin" or challenge.created_by == current_user.id
+    if comment.user_id != current_user.id and not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Você só pode excluir seus próprios comentários.",
+        )
+    await db.delete(comment)
+    await db.commit()
     return await _load_single_checkin_out(db, checkin, current_user.id, is_admin)
 
 
@@ -326,9 +473,21 @@ async def report_checkin(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> CheckInOut:
-    """Report a suspicious check-in for review by the challenge admin."""
+    """Report a suspicious check-in for review by the challenge admin (once per reporter)."""
     checkin = await _get_checkin_or_404(db, checkin_id)
     challenge, membership = await _require_membership(db, checkin.challenge_id, current_user.id)
+
+    duplicate = await db.scalar(
+        select(CheckInReport.id).where(
+            CheckInReport.checkin_id == checkin.id,
+            CheckInReport.reporter_id == current_user.id,
+        )
+    )
+    if duplicate is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Você já denunciou este check-in.",
+        )
 
     db.add(
         CheckInReport(

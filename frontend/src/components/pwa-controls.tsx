@@ -1,7 +1,13 @@
 "use client";
 
-import { Download, Share, Smartphone, WifiOff, X } from "lucide-react";
+import { CloudUpload, Download, Share, Smartphone, WifiOff, X } from "lucide-react";
 import { useEffect, useState } from "react";
+
+import {
+  flushOfflineQueue,
+  getOfflineQueue,
+  subscribeOfflineQueue,
+} from "@/lib/offline-queue";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -38,6 +44,8 @@ function isInstallDismissed(): boolean {
 
 export function PwaControls() {
   const [isOnline, setIsOnline] = useState(true);
+  const [queuedCount, setQueuedCount] = useState(0);
+  const [flushing, setFlushing] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showIosHint, setShowIosHint] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -45,8 +53,21 @@ export function PwaControls() {
 
   useEffect(() => {
     setIsOnline(window.navigator.onLine);
+    setQueuedCount(getOfflineQueue().length);
 
-    const handleOnline = () => setIsOnline(true);
+    const syncQueueCount = () => setQueuedCount(getOfflineQueue().length);
+    const unsubQueue = subscribeOfflineQueue(syncQueueCount);
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      if (getOfflineQueue().length > 0) {
+        setFlushing(true);
+        void flushOfflineQueue().finally(() => {
+          setFlushing(false);
+          setQueuedCount(getOfflineQueue().length);
+        });
+      }
+    };
     const handleOffline = () => setIsOnline(false);
 
     window.addEventListener("online", handleOnline);
@@ -78,6 +99,7 @@ export function PwaControls() {
     window.addEventListener("appinstalled", handleAppInstalled);
 
     return () => {
+      unsubQueue();
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
@@ -109,6 +131,16 @@ export function PwaControls() {
     }
   }
 
+  async function handleManualFlush() {
+    setFlushing(true);
+    try {
+      await flushOfflineQueue();
+      setQueuedCount(getOfflineQueue().length);
+    } finally {
+      setFlushing(false);
+    }
+  }
+
   const showInstallBanner = !dismissed && (deferredPrompt !== null || showIosHint);
 
   return (
@@ -117,13 +149,40 @@ export function PwaControls() {
         <div
           role="status"
           aria-live="polite"
-          className="fixed left-0 right-0 top-0 z-50 border-b border-amber-500/40 bg-[#0F1722] px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-xs font-medium text-amber-200"
+          className="fixed left-0 right-0 top-0 z-50 border-b border-gold/40 bg-shell px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-xs font-medium text-amber-200"
         >
           <div className="mx-auto flex max-w-6xl items-center justify-center gap-2 text-center">
-            <WifiOff className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+            <WifiOff className="h-3.5 w-3.5 shrink-0 text-gold" aria-hidden="true" />
             <span>
-              Sem conexão com a internet. Novos check-ins e sync exigem rede ativa.
+              Sem conexão com a internet. Check-ins manuais serão salvos na fila local
+              {queuedCount > 0 ? ` (${queuedCount} pendente(s))` : ""}.
             </span>
+          </div>
+        </div>
+      )}
+
+      {isOnline && queuedCount > 0 && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed left-0 right-0 top-0 z-50 border-b border-success/40 bg-shell px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] text-xs font-medium text-emerald-200"
+        >
+          <div className="mx-auto flex max-w-6xl items-center justify-center gap-3 text-center">
+            <CloudUpload className="h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
+            <span>
+              {flushing
+                ? "Enviando check-ins salvos offline..."
+                : `${queuedCount} check-in(s) salvo(s) offline aguardando envio.`}
+            </span>
+            {!flushing && (
+              <button
+                type="button"
+                onClick={() => void handleManualFlush()}
+                className="rounded-md bg-accent px-2 py-0.5 text-[11px] font-bold text-white hover:bg-accent-hover"
+              >
+                Enviar agora
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -131,14 +190,14 @@ export function PwaControls() {
       {showInstallBanner && (
         <aside
           aria-label="Instalar aplicativo BrainRats"
-          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-3 right-3 z-40 rounded-xl border border-slate-700 bg-[#0F1722] p-3.5 text-white md:bottom-5 md:left-auto md:right-5 md:w-96"
+          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-3 right-3 z-40 rounded-xl border border-shell-line bg-shell p-3.5 text-white shadow-raised md:bottom-5 md:left-auto md:right-5 md:w-96"
         >
           <div className="flex items-start gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/icon-192.png"
               alt="Ícone BrainRats"
-              className="h-10 w-10 shrink-0 rounded-lg border border-slate-700 object-cover"
+              className="h-10 w-10 shrink-0 rounded-lg border border-shell-line object-cover"
             />
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold text-white">Instalar BrainRats no celular</p>
@@ -152,15 +211,15 @@ export function PwaControls() {
                       type="button"
                       disabled={installing}
                       onClick={() => void handleInstallClick()}
-                      className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[#D94E28] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#C2411E] disabled:opacity-50"
+                      className="btn btn-sm btn-primary"
                     >
-                      <Download className="h-3.5 w-3.5" />
+                      <Download className="h-3.5 w-3.5" aria-hidden="true" />
                       {installing ? "Instalando..." : "Instalar app"}
                     </button>
                     <button
                       type="button"
                       onClick={handleDismiss}
-                      className="min-h-9 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-[#182232] hover:text-white"
+                      className="btn btn-sm btn-shell"
                     >
                       Agora não
                     </button>
@@ -168,7 +227,7 @@ export function PwaControls() {
                 </>
               ) : (
                 <p className="mt-1 flex flex-wrap items-center gap-1 text-xs leading-relaxed text-slate-300">
-                  <Smartphone className="inline h-3.5 w-3.5 shrink-0 text-[#FF8A65]" />
+                  <Smartphone className="inline h-3.5 w-3.5 shrink-0 text-accent-soft" />
                   <span>
                     No Safari, toque em{" "}
                     <strong className="inline-flex items-center gap-1 font-semibold text-white">
@@ -184,9 +243,9 @@ export function PwaControls() {
               type="button"
               onClick={handleDismiss}
               aria-label="Fechar aviso de instalação"
-              className="inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-[#182232] hover:text-white"
+              className="inline-flex min-h-8 min-w-8 shrink-0 items-center justify-center rounded-md text-slate-300 hover:bg-shell-raised hover:text-white"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         </aside>

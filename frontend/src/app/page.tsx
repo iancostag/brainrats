@@ -8,6 +8,7 @@ import { LoginView } from "@/components/login-view";
 import {
   ApiError,
   clearStoredToken,
+  exchangeOAuthCode,
   fetchMe,
   getStoredToken,
   setStoredToken,
@@ -26,21 +27,21 @@ export default function HomePage() {
 
   const validateSession = useCallback(async () => {
     let oauthNotice: string | null = null;
+    let exchangedUser: User | null = null;
+
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const oauthToken = params.get("token");
+      const oauthCode = params.get("oauth_code");
       const oauthError = params.get("oauth_error");
       const oauthLinked = params.get("oauth_linked");
       const inviteParam = params.get("invite");
       const tabParam = params.get("tab");
+      const challengeParam = params.get("challenge");
 
       if (inviteParam && inviteParam.trim()) {
         setPendingInvite(inviteParam);
       }
 
-      if (oauthToken) {
-        setStoredToken(oauthToken);
-      }
       if (oauthLinked === "1") {
         setDashboardNotice({
           ok: true,
@@ -56,12 +57,36 @@ export default function HomePage() {
         setDashboardNotice({ ok: false, text: oauthNotice });
       }
 
-      if (oauthToken || oauthError || oauthLinked || inviteParam) {
-        const nextUrl = tabParam
-          ? `${window.location.pathname}?tab=${encodeURIComponent(tabParam)}`
-          : window.location.pathname;
+      if (oauthCode || oauthError || oauthLinked || inviteParam) {
+        const cleanParams = new URLSearchParams();
+        if (tabParam) cleanParams.set("tab", tabParam);
+        if (challengeParam) cleanParams.set("challenge", challengeParam);
+        const qs = cleanParams.toString();
+        const nextUrl = qs ? `${window.location.pathname}?${qs}` : window.location.pathname;
         window.history.replaceState({}, "", nextUrl);
       }
+
+      if (oauthCode) {
+        try {
+          const exchanged = await exchangeOAuthCode(oauthCode);
+          setStoredToken(exchanged.access_token);
+          exchangedUser = exchanged.user;
+        } catch (err) {
+          oauthNotice =
+            err instanceof Error
+              ? err.message
+              : "Código OAuth expirado ou inválido. Tente entrar novamente.";
+          setSessionNotice(oauthNotice);
+          setDashboardNotice({ ok: false, text: oauthNotice });
+        }
+      }
+    }
+
+    if (exchangedUser) {
+      setUser(exchangedUser);
+      setSessionNotice(null);
+      setCheckingSession(false);
+      return;
     }
 
     const pendingInvite = getPendingInvite();
@@ -112,7 +137,11 @@ export default function HomePage() {
       >
         <div className="flex flex-col items-center gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-icon.jpg" alt="" className="h-16 w-16 rounded-2xl object-cover shadow-raised" />
+          <img
+            src="/logo-icon.jpg"
+            alt=""
+            className="h-16 w-16 rounded-2xl object-cover shadow-raised"
+          />
           <div className="card flex items-center gap-3 px-5 py-3 text-sm font-medium text-ink-2">
             <RefreshCw className="h-4 w-4 animate-spin text-accent-text" aria-hidden="true" />
             <span>Carregando sua sessão no BrainRats...</span>

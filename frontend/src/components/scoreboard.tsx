@@ -1,16 +1,21 @@
 "use client";
 
-import { ArrowRight, Check, Coffee, Copy, Crown, Flame, Trophy, UserPlus } from "lucide-react";
+import {
+  ArrowRight,
+  Bell,
+  Check,
+  Coffee,
+  Copy,
+  Crown,
+  Flame,
+  Trophy,
+  UserPlus,
+} from "lucide-react";
 
 import { Avatar } from "@/components/ui";
 import type { LeaderboardEntry, ScoringMode } from "@/lib/api";
-import {
-  LEADERBOARD_SORTS,
-  primaryMetric,
-  type LeaderboardSort,
-} from "@/lib/leaderboard";
+import { LEADERBOARD_SORTS, primaryMetric, type LeaderboardSort } from "@/lib/leaderboard";
 
-/* Cores das três primeiras posições: ouro, prata, bronze. */
 const MEDAL_STYLES = [
   "bg-gold text-shell",
   "bg-[#cbd5e1] text-shell",
@@ -70,6 +75,7 @@ function Row({
   scoringMode,
   isMe,
   roomy,
+  onNudge,
 }: {
   entry: LeaderboardEntry;
   position: number;
@@ -77,22 +83,25 @@ function Row({
   scoringMode: ScoringMode;
   isMe: boolean;
   roomy: boolean;
+  onNudge?: (userId: string, displayName: string) => void;
 }) {
   const metric = primaryMetric(entry, sort, scoringMode);
+  const canNudge = Boolean(onNudge && !isMe && entry.checked_in_today === false);
+
   return (
     <li
       aria-current={isMe ? "true" : undefined}
       className={`flex items-center gap-3 rounded-xl transition-colors ${roomy ? "p-3" : "px-2.5 py-2"} ${
-        isMe
-          ? "bg-accent/10 ring-1 ring-accent-bright/50"
-          : "hover:bg-well"
+        isMe ? "bg-accent/10 ring-1 ring-accent-bright/50" : "hover:bg-well"
       }`}
     >
       <PositionBadge position={position} />
       {roomy && <Avatar name={entry.display_name} src={entry.avatar_url} size="sm" />}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span className="truncate text-sm font-semibold text-ink-strong">{entry.display_name}</span>
+          <span className="truncate text-sm font-semibold text-ink-strong">
+            {entry.display_name}
+          </span>
           {isMe && (
             <span className="shrink-0 rounded bg-accent px-1.5 py-px text-[10px] font-bold text-white">
               você
@@ -117,6 +126,17 @@ function Row({
           </span>
         </p>
       </div>
+      {canNudge && (
+        <button
+          type="button"
+          title={`Enviar lembrete amigável para ${entry.display_name}`}
+          aria-label={`Cutucar ${entry.display_name}`}
+          onClick={() => onNudge?.(entry.user_id, entry.display_name)}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-lane bg-card text-ink-2 transition-colors hover:border-accent/50 hover:text-accent-text"
+        >
+          <Bell className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      )}
       <span className="shrink-0 text-right">
         <span className="font-score text-2xl leading-none text-ink-strong">{metric.value}</span>{" "}
         <span className="text-xs text-ink-2">{metric.unit}</span>
@@ -131,19 +151,15 @@ interface ScoreboardProps {
   onSortChange: (next: LeaderboardSort) => void;
   currentUserId: string;
   scoringMode: ScoringMode;
-  /** Limite de linhas (o usuário sempre aparece, mesmo fora do limite). */
   limit?: number;
   onSeeAll?: () => void;
   inviteCode: string;
   copiedInvite: boolean;
   onCopyInvite: () => void;
+  onNudge?: (userId: string, displayName: string) => void;
   title?: string;
 }
 
-/**
- * Placar Oficial. Com até 5 atletas mostra linhas espaçosas com avatar;
- * com mais vira lista compacta. Com um único atleta, mostra a linha e o convite.
- */
 export function Scoreboard({
   entries,
   sort,
@@ -155,12 +171,12 @@ export function Scoreboard({
   inviteCode,
   copiedInvite,
   onCopyInvite,
+  onNudge,
   title = "Placar Oficial",
 }: ScoreboardProps) {
   const roomy = entries.length <= 5;
   const myIndex = entries.findIndex((e) => e.user_id === currentUserId);
-  const visible =
-    limit && entries.length > limit ? entries.slice(0, limit) : entries;
+  const visible = limit && entries.length > limit ? entries.slice(0, limit) : entries;
   const meOutside = limit !== undefined && myIndex >= limit;
   const hiddenCount = entries.length - visible.length;
   const solo = entries.length === 1;
@@ -199,6 +215,7 @@ export function Scoreboard({
                 scoringMode={scoringMode}
                 isMe={entry.user_id === currentUserId}
                 roomy={roomy}
+                onNudge={onNudge}
               />
             ))}
           </ol>
@@ -227,7 +244,11 @@ export function Scoreboard({
                 <UserPlus className="mt-0.5 h-4 w-4 shrink-0 text-accent-text" aria-hidden="true" />
                 Por enquanto só você. Compartilhe o código para trazer a turma.
               </p>
-              <button type="button" onClick={onCopyInvite} className="btn btn-sm btn-secondary self-start font-mono">
+              <button
+                type="button"
+                onClick={onCopyInvite}
+                className="btn btn-sm btn-secondary self-start font-mono"
+              >
                 {copiedInvite ? (
                   <>
                     <Check className="h-3.5 w-3.5 text-success-text" aria-hidden="true" /> Copiado
@@ -247,7 +268,8 @@ export function Scoreboard({
               onClick={onSeeAll}
               className="relative mt-3 inline-flex min-h-9 w-full items-center justify-center gap-1.5 rounded-xl text-xs font-semibold text-accent-text transition-colors hover:bg-well hover:text-accent-strong"
             >
-              Ver ranking completo ({entries.length}) <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+              Ver ranking completo ({entries.length}){" "}
+              <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
           )}
         </>
@@ -256,7 +278,6 @@ export function Scoreboard({
   );
 }
 
-/** Pódio dos três primeiros, usado na página de Ranking quando há 3+ atletas. */
 export function Podium({
   entries,
   sort,
@@ -270,7 +291,6 @@ export function Podium({
 }) {
   const top = entries.slice(0, 3);
   if (top.length < 3) return null;
-  // Ordem visual: 2º, 1º, 3º.
   const order = [1, 0, 2];
   const heights = ["h-28", "h-20", "h-16"];
   return (
@@ -307,7 +327,11 @@ export function Podium({
             </div>
             <div
               className={`flex w-full items-start justify-center rounded-t-2xl pt-2 ${heights[idx]} ${
-                idx === 0 ? "bg-linear-to-b from-gold to-[#f59e0b]" : idx === 1 ? "bg-[#cbd5e1]" : "bg-[#b45309]"
+                idx === 0
+                  ? "bg-linear-to-b from-gold to-[#f59e0b]"
+                  : idx === 1
+                    ? "bg-[#cbd5e1]"
+                    : "bg-[#b45309]"
               }`}
             >
               <span className={`font-score text-2xl ${idx === 2 ? "text-white" : "text-shell"}`}>

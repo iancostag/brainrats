@@ -8,6 +8,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import is_valid_github_username
 from app.models.challenge import Category, Challenge
 from app.models.checkin import CheckIn
 from app.models.user import MonitoredRepository, UserIntegration
@@ -183,7 +184,7 @@ async def fetch_github_events_commits(
 ) -> list[dict]:
     """Fetch recent commits from GitHub PushEvents (resolving head/compare when needed)."""
     username = github_username.strip()
-    if not username:
+    if not username or not is_valid_github_username(username):
         return []
 
     headers = _github_headers(access_token)

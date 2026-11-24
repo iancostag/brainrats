@@ -74,6 +74,7 @@ export function IntegrationsTab({
 
   const [saving, setSaving] = useState(false);
   const [linkingOAuth, setLinkingOAuth] = useState(false);
+  const [includePrivateRepos, setIncludePrivateRepos] = useState(false);
   const [disconnecting, setDisconnecting] = useState<"github" | "leetcode" | null>(null);
   const [syncMode, setSyncMode] = useState<"real" | "simulate" | null>(null);
   const [syncResult, setSyncResult] = useState<SyncResponse | null>(null);
@@ -147,7 +148,7 @@ export function IntegrationsTab({
     setMessage(null);
     setLinkingOAuth(true);
     try {
-      const { url } = await requestGithubOAuthLinkUrl("integrations");
+      const { url } = await requestGithubOAuthLinkUrl("integrations", includePrivateRepos);
       window.location.assign(url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível iniciar o GitHub OAuth.");
@@ -466,9 +467,18 @@ export function IntegrationsTab({
               ) : githubOAuthEnabled ? (
                 <div className="flex flex-col gap-2 text-xs text-ink-2">
                   <p>
-                    Conecte sua conta via GitHub OAuth para escolher repositórios específicos
-                    (públicos ou privados) no monitoramento.
+                    Conecte sua conta via GitHub OAuth para escolher repositórios específicos no
+                    monitoramento (escopo mínimo por padrão).
                   </p>
+                  <label className="flex items-center gap-2 text-xs text-ink-3">
+                    <input
+                      type="checkbox"
+                      checked={includePrivateRepos}
+                      onChange={(e) => setIncludePrivateRepos(e.target.checked)}
+                      className="h-4 w-4 accent-accent"
+                    />
+                    Incluir permissão para repositórios privados (escopo <code className="font-mono">repo</code>)
+                  </label>
                   <button
                     type="button"
                     disabled={linkingOAuth}

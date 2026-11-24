@@ -1,14 +1,16 @@
 import logging
 import secrets
 import uuid
-from datetime import UTC, date, datetime
+from datetime import date, datetime
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.database import get_db
+from app.core.rate_limit import rate_limit
 from app.core.security import decrypt_secret, get_current_user
 from app.core.seed import ensure_default_categories
 from app.models.challenge import Challenge, ChallengeMember
@@ -16,6 +18,7 @@ from app.models.checkin import CheckIn
 from app.models.user import MonitoredRepository, User, UserIntegration
 from app.schemas.auth import GitHubRepoItem, MonitoredReposUpdateRequest
 from app.schemas.checkin import SyncRequest, SyncResponse
+from app.services.badges import evaluate_user_badges
 from app.services.checkins import hydrate_checkins, publish_checkin
 from app.services.github_sync import (
     GitHubSyncError,
@@ -24,22 +27,16 @@ from app.services.github_sync import (
     parse_github_timestamp,
     sync_github_integration_for_user,
 )
+from app.services.leetcode_sync import (
+    fetch_leetcode_problem_difficulty,
+    fetch_leetcode_recent_submissions,
+    parse_leetcode_timestamp,
+    sync_leetcode_integration_for_user,
+)
 from app.services.scoring import compute_study_date
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/integrations", tags=["integrations"])
-
-LEETCODE_GRAPHQL_URL = "https://leetcode.com/graphql"
-LEETCODE_RECENT_AC_QUERY = """
-query recentAcSubmissions($username: String!, $limit: Int!) {
-  recentAcSubmissionList(username: $username, limit: $limit) {
-    id
-    title
-    titleSlug
-    timestamp
-  }
-}
-"""
 
 
 async def _resolve_target_challenge(
@@ -81,12 +78,7 @@ def _parse_github_timestamp(raw: str | None) -> datetime | None:
 
 
 def _parse_leetcode_timestamp(raw: str | int | None) -> datetime | None:
-    if raw is None or raw == "":
-        return None
-    try:
-        return datetime.fromtimestamp(int(raw), tz=UTC)
-    except (TypeError, ValueError):
-        return None
+    return parse_leetcode_timestamp(raw)
 
 
 def _is_within_today_and_challenge(
@@ -118,19 +110,11 @@ async def _fetch_repo_commits_with_token(
 
 
 async def _fetch_leetcode_submissions(leetcode_username: str) -> list[dict]:
-    async with httpx.AsyncClient(timeout=6.0) as client:
-        resp = await client.post(
-            LEETCODE_GRAPHQL_URL,
-            json={
-                "query": LEETCODE_RECENT_AC_QUERY,
-                "variables": {"username": leetcode_username, "limit": 15},
-            },
-            headers={"Content-Type": "application/json"},
-        )
-        if resp.status_code != 200:
-            return []
-        data = resp.json().get("data") or {}
-        return data.get("recentAcSubmissionList") or []
+    return await fetch_leetcode_recent_submissions(leetcode_username)
+
+
+async def _fetch_leetcode_problem_difficulty(title_slug: str) -> str | None:
+    return await fetch_leetcode_problem_difficulty(title_slug)
 
 
 @router.get("/github/repos", response_model=list[GitHubRepoItem])
@@ -138,7 +122,7 @@ async def list_github_repositories(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[GitHubRepoItem]:
-    """List the user's GitHub repositories (including private) using OAuth token."""
+    """List the user's GitHub repositories (including private if authorized) using OAuth token."""
     gh_integration = await db.scalar(
         select(UserIntegration).where(
             UserIntegration.user_id == current_user.id,
@@ -202,6 +186,19 @@ async def update_monitored_repositories(
     db: AsyncSession = Depends(get_db),
 ) -> list[GitHubRepoItem]:
     """Save which GitHub repositories should be monitored for automatic project check-ins."""
+    if payload.target_challenge_id is not None:
+        is_member = await db.scalar(
+            select(ChallengeMember.id).where(
+                ChallengeMember.challenge_id == payload.target_challenge_id,
+                ChallengeMember.user_id == current_user.id,
+            )
+        )
+        if is_member is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Você não participa do desafio alvo selecionado.",
+            )
+
     existing_rows = (
         await db.scalars(
             select(MonitoredRepository).where(MonitoredRepository.user_id == current_user.id)
@@ -241,20 +238,24 @@ async def update_monitored_repositories(
             github_repo_id=sel.github_repo_id,
             full_name=sel.full_name,
             default_branch=sel.default_branch,
-            private=False,
+            private=sel.private,
             is_monitored=True,
         )
         for sel in payload.repos
     ]
 
 
-@router.post("/sync", response_model=SyncResponse)
+@router.post(
+    "/sync",
+    response_model=SyncResponse,
+    dependencies=[Depends(rate_limit("integrations_sync", max_requests=20, window_seconds=300))],
+)
 async def sync_integrations(
     payload: SyncRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> SyncResponse:
-    """Sync recent GitHub commits and LeetCode accepted submissions, or simulate for testing."""
+    """Sync recent GitHub commits and LeetCode accepted submissions, or simulate in dev only."""
     categories_by_slug = await ensure_default_categories(db)
     integrations = (
         await db.scalars(select(UserIntegration).where(UserIntegration.user_id == current_user.id))
@@ -266,6 +267,11 @@ async def sync_integrations(
     details: list[str] = []
 
     if payload.simulate:
+        if settings.environment == "production" or not settings.allow_dev_login:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Simulação de sincronização não é permitida neste ambiente.",
+            )
         target = await _resolve_target_challenge(db, current_user.id, payload.challenge_id)
         suffix = secrets.token_hex(3)
         gh_checkin = await publish_checkin(
@@ -323,6 +329,14 @@ async def sync_integrations(
                     decrypt_fn=decrypt_secret,
                     public_fetcher=_fetch_github_push_commits,
                 )
+                for row in gh_rows:
+                    await evaluate_user_badges(
+                        db,
+                        user_id=current_user.id,
+                        challenge=target,
+                        new_checkin=row,
+                        category_slug="project",
+                    )
                 created_rows.extend(gh_rows)
                 skipped += gh_skipped
                 details.append(gh_detail)
@@ -338,46 +352,31 @@ async def sync_integrations(
             target = await _resolve_target_challenge(
                 db, current_user.id, payload.challenge_id or lc_integration.target_challenge_id
             )
-            today_in_tz = compute_study_date(datetime.now(UTC), target.timezone)
             try:
-                submissions = await _fetch_leetcode_submissions(lc_integration.external_username)
-                skipped_old = 0
-                today_matches = 0
-                for sub in submissions:
-                    occurred_at = _parse_leetcode_timestamp(sub.get("timestamp"))
-                    if not _is_within_today_and_challenge(occurred_at, target, today_in_tz):
-                        skipped_old += 1
-                        continue
-                    today_matches += 1
-                    sub_id = str(sub.get("id") or sub.get("timestamp") or "")
-                    title = str(sub.get("title") or "Problema LeetCode")
-                    slug = str(sub.get("titleSlug") or "")
-                    if not sub_id:
-                        continue
-                    row = await publish_checkin(
-                        db,
-                        challenge=target,
-                        user_id=current_user.id,
-                        category=categories_by_slug["leetcode"],
-                        title=title,
-                        description=None,
-                        source="leetcode",
-                        external_event_id=sub_id,
-                        metadata_json={"difficulty": "Medium", "problem_slug": slug},
-                        evidence_url=f"https://leetcode.com/problems/{slug}/" if slug else None,
-                        occurred_at=occurred_at,
-                    )
-                    if row is None:
-                        skipped += 1
-                    else:
-                        created_rows.append(row)
-                lc_integration.last_synced_at = datetime.now(UTC)
-                lc_name = lc_integration.external_username
-                details.append(
-                    f"LeetCode ({lc_name}): {today_matches} submissão(ões) de hoje "
-                    f"({skipped_old} de dias anteriores ignorada(s))."
+                lc_rows, lc_skipped, lc_detail = await sync_leetcode_integration_for_user(
+                    db,
+                    user_id=current_user.id,
+                    lc_integration=lc_integration,
+                    challenge=target,
+                    leetcode_category=categories_by_slug["leetcode"],
+                    submissions_fetcher=_fetch_leetcode_submissions,
+                    difficulty_fetcher=_fetch_leetcode_problem_difficulty,
                 )
+                for row in lc_rows:
+                    await evaluate_user_badges(
+                        db,
+                        user_id=current_user.id,
+                        challenge=target,
+                        new_checkin=row,
+                        category_slug="leetcode",
+                    )
+                created_rows.extend(lc_rows)
+                skipped += lc_skipped
+                details.append(lc_detail)
             except Exception:
+                logger.exception(
+                    "Erro inesperado ao sincronizar LeetCode para user_id=%s", current_user.id
+                )
                 details.append("LeetCode: não foi possível consultar submissões no momento.")
 
     await db.commit()

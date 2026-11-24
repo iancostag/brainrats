@@ -43,6 +43,8 @@ class Challenge(Base):
     end_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     rest_days_per_week: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     daily_points_cap: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+    collective_weekly_goal: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    discord_webhook_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
@@ -113,6 +115,56 @@ class RestDay(Base):
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
     rest_date: Mapped[date] = mapped_column(Date, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class StudyPresence(Base):
+    """Active focus-session presence ('estudando agora') inside a challenge."""
+
+    __tablename__ = "study_presences"
+    __table_args__ = (UniqueConstraint("challenge_id", "user_id", name="uq_study_presence"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    challenge_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("challenges.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    category_slug: Mapped[str] = mapped_column(String(32), default="project", nullable=False)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class ChallengeNudge(Base):
+    """Friendly daily nudge from one member to another inside a challenge."""
+
+    __tablename__ = "challenge_nudges"
+    __table_args__ = (
+        UniqueConstraint(
+            "challenge_id",
+            "sender_id",
+            "target_user_id",
+            "nudge_date",
+            name="uq_challenge_daily_nudge",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    challenge_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("challenges.id", ondelete="CASCADE"), nullable=False
+    )
+    sender_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    target_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    nudge_date: Mapped[date] = mapped_column(Date, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -2,7 +2,17 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter
 
-from app.api.v1 import auth, challenges, checkins, diary, integrations
+from app.api.v1 import (
+    auth,
+    challenges,
+    checkins,
+    diary,
+    integrations,
+    public,
+    push,
+    uploads,
+    webhooks,
+)
 from app.core.config import settings
 from app.schemas.common import CategoryTemplate, HealthResponse
 from app.services.scoring import DEFAULT_CATEGORIES
@@ -32,3 +42,7 @@ api_router.include_router(challenges.router)
 api_router.include_router(checkins.router)
 api_router.include_router(diary.router)
 api_router.include_router(integrations.router)
+api_router.include_router(uploads.router)
+api_router.include_router(webhooks.router)
+api_router.include_router(push.router)
+api_router.include_router(public.router)

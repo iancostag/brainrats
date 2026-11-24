@@ -11,7 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.api.v1 import auth as auth_router
 from app.api.v1 import integrations as integrations_router
+from app.core.config import settings
 from app.core.database import Base, get_db
+from app.core.rate_limit import reset_rate_limiter
 from app.core.seed import seed_initial_data
 from app.main import create_app
 
@@ -25,7 +27,10 @@ async def _disabled_lifespan(_: FastAPI) -> AsyncIterator[None]:
 @pytest.fixture
 async def api_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[TestClient]:
     """HTTP client backed by a fresh SQLite database with no external network calls."""
+    reset_rate_limiter()
     db_file = tmp_path / "brainrats-test.db"
+    upload_dir = tmp_path / "uploads"
+    monkeypatch.setattr(settings, "upload_dir", str(upload_dir))
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_file}", echo=False)
     session_factory = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
@@ -44,10 +49,16 @@ async def api_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncIt
     async def no_leetcode_events(_: str) -> list[dict[str, Any]]:
         return []
 
+    async def no_leetcode_difficulty(_: str) -> None:
+        return None
+
     # Tests must never depend on GitHub/LeetCode availability.
     monkeypatch.setattr(auth_router, "_fetch_github_profile", no_github_profile)
     monkeypatch.setattr(integrations_router, "_fetch_github_push_commits", no_github_events)
     monkeypatch.setattr(integrations_router, "_fetch_leetcode_submissions", no_leetcode_events)
+    monkeypatch.setattr(
+        integrations_router, "_fetch_leetcode_problem_difficulty", no_leetcode_difficulty
+    )
 
     app = create_app()
     app.router.lifespan_context = _disabled_lifespan
@@ -63,6 +74,7 @@ async def api_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> AsyncIt
             yield client
     finally:
         app.dependency_overrides.clear()
+        reset_rate_limiter()
         await engine.dispose()
 
 

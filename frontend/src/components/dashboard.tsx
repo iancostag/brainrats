@@ -1,16 +1,19 @@
 "use client";
 
-import { Coffee, Compass, Swords } from "lucide-react";
+import { Bell, Coffee, Compass, Plus, Swords } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { AppShell, type StreakSnapshot, type TabId } from "@/components/app-shell";
 import { ChallengeHero, ChallengeHeroSkeleton } from "@/components/challenge-hero";
+import { ChallengeManageModal } from "@/components/challenge-manage-modal";
+import { ChallengeWrappedModal } from "@/components/challenge-wrapped-modal";
 import { ChallengesTab } from "@/components/challenges-tab";
 import { CheckinForm } from "@/components/checkin-form";
 import { DiaryTab } from "@/components/diary-tab";
 import { GroupFeed } from "@/components/group-feed";
 import { IntegrationsTab } from "@/components/integrations-tab";
 import { Milestones } from "@/components/milestones";
+import { ModerationPanel } from "@/components/moderation-panel";
 import { RankingTab } from "@/components/ranking-tab";
 import { RulesPanel } from "@/components/rules-panel";
 import { Scoreboard } from "@/components/scoreboard";
@@ -22,6 +25,7 @@ import {
   fetchChallengeFeed,
   fetchChallenges,
   joinChallenge,
+  nudgeMember,
   registerRestDay,
   syncIntegrations,
   updateProfile,
@@ -49,8 +53,17 @@ interface DashboardProps {
 }
 
 const FEED_PAGE_SIZE = 30;
-/** Linhas do placar no Início; o ranking completo fica na aba Ranking. */
 const HOME_SCOREBOARD_LIMIT = 5;
+
+function mapTabParam(paramTab: string | null): TabId | null {
+  if (paramTab === "home" || paramTab === "active") return "home";
+  if (paramTab === "progress" || paramTab === "diary") return "progress";
+  if (paramTab === "ranking") return "ranking";
+  if (paramTab === "challenges" || paramTab === "explore") return "challenges";
+  if (paramTab === "integrations") return "integrations";
+  if (paramTab === "settings") return "settings";
+  return null;
+}
 
 export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout }: DashboardProps) {
   const [tab, setTab] = useState<TabId>("home");
@@ -70,47 +83,77 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
     initialNotice,
   );
   const [showRules, setShowRules] = useState(false);
+  const [showModeration, setShowModeration] = useState(false);
+  const [showManage, setShowManage] = useState(false);
+  const [showWrapped, setShowWrapped] = useState(false);
   const [confirmRestDay, setConfirmRestDay] = useState(false);
   const [restingBusy, setRestingBusy] = useState(false);
   const [restFeedback, setRestFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [quickSyncing, setQuickSyncing] = useState(false);
   const [quickSyncMsg, setQuickSyncMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  // Ganho do último check-in publicado: dispara o momento de feedback na meta e na ofensiva.
+  const [nudgeFeedback, setNudgeFeedback] = useState<{ ok: boolean; text: string } | null>(null);
   const [lastGain, setLastGain] = useState<{ label: string; key: number } | null>(null);
+  const [badgeRefreshKey, setBadgeRefreshKey] = useState(0);
 
   const [feedFilter, setFeedFilter] = useState<string>("all");
   const [hasMoreFeed, setHasMoreFeed] = useState(false);
   const [loadingMoreFeed, setLoadingMoreFeed] = useState(false);
   const [leaderboardSort, setLeaderboardSort] = useState<LeaderboardSort>("points");
 
+  const activeReqSeq = useRef(0);
+
   function switchTab(next: TabId) {
     setTab(next);
     if (typeof window !== "undefined") {
       window.scrollTo({ top: 0, behavior: "instant" });
+      const params = new URLSearchParams(window.location.search);
+      if (next === "home") {
+        params.delete("tab");
+      } else {
+        params.set("tab", next);
+      }
+      const qs = params.toString();
+      window.history.replaceState({}, "", qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
     }
   }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const paramTab = new URLSearchParams(window.location.search).get("tab");
-    const mappedTab: TabId | null =
-      paramTab === "home" || paramTab === "active"
-        ? "home"
-        : paramTab === "progress" || paramTab === "diary"
-          ? "progress"
-          : paramTab === "ranking"
-            ? "ranking"
-            : paramTab === "challenges" || paramTab === "explore"
-              ? "challenges"
-              : paramTab === "integrations"
-                ? "integrations"
-                : paramTab === "settings"
-                  ? "settings"
-                  : null;
+    const params = new URLSearchParams(window.location.search);
+    const mappedTab = mapTabParam(params.get("tab"));
     if (mappedTab) {
       setTab(mappedTab);
-      window.history.replaceState({}, "", window.location.pathname);
     }
+  }, []);
+
+  // Atalhos de teclado: N foca o check-in, / foca a busca do diário.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const isTyping =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable);
+      if (isTyping || event.metaKey || event.ctrlKey || event.altKey) return;
+
+      if (event.key.toLowerCase() === "n") {
+        event.preventDefault();
+        setTab("home");
+        setTimeout(() => {
+          document.getElementById("checkin-title-input")?.focus();
+        }, 40);
+      } else if (event.key === "/") {
+        event.preventDefault();
+        setTab("progress");
+        setTimeout(() => {
+          document.querySelector<HTMLInputElement>('input[aria-label="Buscar no diário"]')?.focus();
+        }, 60);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   const userLastChallengeRef = useRef(user.last_challenge_id);
@@ -165,25 +208,33 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
 
   const loadActiveChallengeData = useCallback(async (challengeId: string) => {
     if (!challengeId) return;
+    const reqSeq = ++activeReqSeq.current;
     setLoadingDetail(true);
     setDetailError(null);
     setConfirmRestDay(false);
     setRestFeedback(null);
     setQuickSyncMsg(null);
+    setShowModeration(false);
+    setShowManage(false);
+    setShowWrapped(false);
     try {
       const [chDetail, chFeed] = await Promise.all([
         fetchChallengeDetail(challengeId),
         fetchChallengeFeed(challengeId, { limit: FEED_PAGE_SIZE }),
       ]);
+      if (reqSeq !== activeReqSeq.current) return;
       setDetail(chDetail);
       setFeed(chFeed);
       setHasMoreFeed(chFeed.length === FEED_PAGE_SIZE);
     } catch (err) {
+      if (reqSeq !== activeReqSeq.current) return;
       setDetailError(
         err instanceof Error ? err.message : "Não foi possível carregar este desafio.",
       );
     } finally {
-      setLoadingDetail(false);
+      if (reqSeq === activeReqSeq.current) {
+        setLoadingDetail(false);
+      }
     }
   }, []);
 
@@ -261,6 +312,7 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
         challenge_id: activeChallengeId,
       });
       await loadActiveChallengeData(activeChallengeId);
+      setBadgeRefreshKey((k) => k + 1);
       setQuickSyncMsg({
         ok: true,
         text:
@@ -275,6 +327,23 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
       });
     } finally {
       setQuickSyncing(false);
+    }
+  }
+
+  async function handleNudge(targetUserId: string, targetName: string) {
+    if (!activeChallengeId) return;
+    setNudgeFeedback(null);
+    try {
+      await nudgeMember(activeChallengeId, targetUserId);
+      setNudgeFeedback({
+        ok: true,
+        text: `Lembrete amigável enviado para ${targetName}!`,
+      });
+    } catch (err) {
+      setNudgeFeedback({
+        ok: false,
+        text: err instanceof Error ? err.message : "Não foi possível enviar lembrete.",
+      });
     }
   }
 
@@ -315,6 +384,13 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
     }
   }
 
+  function handleCheckinDeleted(checkinId: string) {
+    setFeed((prev) => prev.filter((item) => item.id !== checkinId));
+    if (activeChallengeId) {
+      void loadActiveChallengeData(activeChallengeId);
+    }
+  }
+
   function handleLogout() {
     clearStoredToken();
     onLogout();
@@ -333,17 +409,21 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
 
   const todayIso = weekDays.find((w) => w.isToday)?.iso ?? "";
 
+  // Usa os dados exatos calculados pelo backend (evitando quebra quando o feed tem >30 itens).
   const userActiveDates = useMemo(() => {
-    const dates = new Set<string>();
+    const dates = new Set<string>(detail?.user_active_dates_this_week ?? []);
     for (const item of feed) {
       if (item.user_id === user.id && item.status === "valid") {
         dates.add(item.study_date);
       }
     }
     return dates;
-  }, [feed, user.id]);
+  }, [detail?.user_active_dates_this_week, feed, user.id]);
 
   const userPointsToday = useMemo(() => {
+    if (typeof detail?.user_points_today === "number") {
+      return detail.user_points_today;
+    }
     return feed
       .filter(
         (item) =>
@@ -352,7 +432,7 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
           item.study_date === todayIso,
       )
       .reduce((sum, item) => sum + item.points_awarded, 0);
-  }, [feed, todayIso, user.id]);
+  }, [detail?.user_points_today, feed, todayIso, user.id]);
 
   const userRestSet = useMemo(
     () => new Set(detail?.user_rest_dates ?? []),
@@ -388,8 +468,8 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
 
   const hasLinkedIntegrations = user.integrations.length > 0;
   const noChallenges = !loadingChallenges && !challengesError && challenges.length === 0;
+  const receivedNudges = detail?.received_nudges_today ?? [];
 
-  /** Estado do desafio ativo para as abas que dependem dele (Início e Ranking). */
   function renderChallengeGate(): ReactNode | null {
     if (detailError) {
       return (
@@ -459,6 +539,16 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
                 loadingDetail ? "opacity-70" : "opacity-100"
               }`}
             >
+              {receivedNudges.length > 0 && !weekSummary.checkedInToday && (
+                <Notice tone="rest">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Bell className="h-4 w-4 shrink-0 text-accent-text" aria-hidden="true" />
+                    <strong>{receivedNudges[0].sender_display_name}</strong> te mandou um lembrete
+                    hoje para manter sua ofensiva viva!
+                  </span>
+                </Notice>
+              )}
+
               <ChallengeHero
                 challenges={challenges}
                 activeChallengeId={activeChallengeId}
@@ -482,9 +572,23 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
                 onConnectIntegrations={() => switchTab("integrations")}
                 rulesOpen={showRules}
                 onToggleRules={() => setShowRules((prev) => !prev)}
+                isAdmin={isAdmin}
+                moderationOpen={showModeration}
+                onToggleModeration={() => setShowModeration((prev) => !prev)}
+                manageOpen={showManage}
+                onToggleManage={() => setShowManage((prev) => !prev)}
+                wrappedOpen={showWrapped}
+                onToggleWrapped={() => setShowWrapped((prev) => !prev)}
               />
 
-              {(confirmRestDay || restFeedback || quickSyncMsg || showRules) && (
+              {(confirmRestDay ||
+                restFeedback ||
+                quickSyncMsg ||
+                nudgeFeedback ||
+                showRules ||
+                showModeration ||
+                showManage ||
+                showWrapped) && (
                 <div className="flex flex-col gap-3">
                   {confirmRestDay && (
                     <Notice
@@ -535,15 +639,54 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
                       {quickSyncMsg.text}
                     </Notice>
                   )}
+                  {nudgeFeedback && (
+                    <Notice
+                      tone={nudgeFeedback.ok ? "success" : "error"}
+                      onDismiss={() => setNudgeFeedback(null)}
+                    >
+                      {nudgeFeedback.text}
+                    </Notice>
+                  )}
                   {showRules && (
                     <section aria-label="Regras e pesos" className="card animate-reveal p-4">
                       <RulesPanel detail={detail} />
                     </section>
                   )}
+                  {showWrapped && (
+                    <ChallengeWrappedModal
+                      challengeId={detail.challenge.id}
+                      onClose={() => setShowWrapped(false)}
+                    />
+                  )}
+                  {showModeration && isAdmin && (
+                    <ModerationPanel
+                      challengeId={detail.challenge.id}
+                      currentUserId={user.id}
+                      scoringMode={detail.challenge.scoring_mode}
+                      onClose={() => setShowModeration(false)}
+                      onModerated={handleCheckinUpdated}
+                    />
+                  )}
+                  {showManage && isMember && (
+                    <ChallengeManageModal
+                      detail={detail}
+                      currentUserId={user.id}
+                      isAdmin={isAdmin}
+                      onClose={() => setShowManage(false)}
+                      onUpdated={async () => {
+                        await loadChallenges(detail.challenge.id);
+                        await loadActiveChallengeData(detail.challenge.id);
+                      }}
+                      onLeftChallenge={async () => {
+                        setActiveChallengeId("");
+                        setDetail(null);
+                        await loadChallenges();
+                      }}
+                    />
+                  )}
                 </div>
               )}
 
-              {/* Celular: registrar, placar e marcos, feed. Desktop: placar e marcos na coluna direita. */}
               <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:grid-rows-[auto_1fr] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
                 <div className="min-w-0">
                   {isMember ? (
@@ -555,6 +698,11 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
                         challenges.filter((c) => c.is_member && c.id !== detail.challenge.id)
                           .length
                       }
+                      onPresenceChanged={() => {
+                        void fetchChallengeDetail(detail.challenge.id)
+                          .then(setDetail)
+                          .catch(() => {});
+                      }}
                       onCreated={(created) => {
                         setFeed((prev) => [created, ...prev]);
                         if (created.status === "valid" && created.points_awarded > 0) {
@@ -566,6 +714,9 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
                             ),
                             key: Date.now(),
                           });
+                        }
+                        if (created.newly_unlocked_badges?.length) {
+                          setBadgeRefreshKey((k) => k + 1);
                         }
                         void fetchChallengeDetail(detail.challenge.id)
                           .then(setDetail)
@@ -599,6 +750,7 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
                     inviteCode={detail.challenge.invite_code}
                     copiedInvite={copiedCode}
                     onCopyInvite={() => handleCopyInvite(detail.challenge.invite_code)}
+                    onNudge={isMember ? (uid, name) => void handleNudge(uid, name) : undefined}
                   />
                   {isMember && (
                     <Milestones
@@ -608,6 +760,7 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
                       summary={weekSummary}
                       restRemaining={detail.rest_days_remaining_this_week}
                       restPerWeek={detail.challenge.rest_days_per_week}
+                      refreshKey={badgeRefreshKey}
                     />
                   )}
                 </aside>
@@ -623,6 +776,7 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
                     isMember={isMember}
                     scoringMode={detail.challenge.scoring_mode}
                     onUpdated={handleCheckinUpdated}
+                    onDeleted={handleCheckinDeleted}
                     hasMore={hasMoreFeed}
                     loadingMore={loadingMoreFeed}
                     onLoadMore={() => void handleLoadMoreFeed()}
@@ -678,6 +832,7 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
           onSynced={async () => {
             if (activeChallengeId) {
               await loadActiveChallengeData(activeChallengeId);
+              setBadgeRefreshKey((k) => k + 1);
             }
           }}
           onGoToActive={() => switchTab("home")}
@@ -692,6 +847,20 @@ export function Dashboard({ user, initialNotice = null, onUserUpdated, onLogout 
           onLogout={handleLogout}
         />
       </div>
+
+      {isMember && tab !== "home" && (
+        <button
+          type="button"
+          onClick={() => {
+            switchTab("home");
+            setTimeout(() => document.getElementById("checkin-title-input")?.focus(), 60);
+          }}
+          aria-label="Registrar novo estudo"
+          className="fixed right-4 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 inline-flex h-12 w-12 items-center justify-center rounded-full bg-accent text-white shadow-raised transition-transform hover:bg-accent-hover active:scale-95 lg:hidden"
+        >
+          <Plus className="h-6 w-6" aria-hidden="true" />
+        </button>
+      )}
     </AppShell>
   );
 }

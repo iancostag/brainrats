@@ -17,6 +17,8 @@ dependencies = [
   "asyncpg>=0.30.0",
   "tzdata>=2024.1",
   "uvicorn[standard]>=0.34.0",
+  "python-multipart>=0.0.34",
+  "pywebpush>=2.5.0",
 ]
 
 [dependency-groups]

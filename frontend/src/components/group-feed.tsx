@@ -13,10 +13,6 @@ type FeedEntry =
   | { type: "single"; checkin: CheckIn }
   | { type: "group"; key: string; items: CheckIn[] };
 
-/**
- * Agrupa check-ins automáticos (GitHub / LeetCode) por (autor, origem, dia)
- * quando há 2+ itens, para um sync em lote não inundar o feed.
- */
 function groupEntries(items: CheckIn[]): FeedEntry[] {
   const autoBuckets = new Map<string, CheckIn[]>();
   for (const item of items) {
@@ -57,6 +53,7 @@ interface GroupFeedProps {
   isMember: boolean;
   scoringMode: ScoringMode;
   onUpdated: (updated: CheckIn) => void;
+  onDeleted?: (checkinId: string) => void;
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
@@ -72,6 +69,7 @@ export function GroupFeed({
   isMember,
   scoringMode,
   onUpdated,
+  onDeleted,
   hasMore,
   loadingMore,
   onLoadMore,
@@ -126,6 +124,7 @@ export function GroupFeed({
                 isMember={isMember}
                 scoringMode={scoringMode}
                 onUpdated={onUpdated}
+                onDeleted={onDeleted}
               />
             ) : (
               <CheckinCard
@@ -136,6 +135,7 @@ export function GroupFeed({
                 isMember={isMember}
                 scoringMode={scoringMode}
                 onUpdated={onUpdated}
+                onDeleted={onDeleted}
               />
             ),
           )}

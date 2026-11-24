@@ -1,3 +1,4 @@
+import math
 import uuid
 from collections import defaultdict
 from datetime import UTC, datetime
@@ -28,14 +29,26 @@ def compute_raw_points(category_slug: str, config: ChallengeCategoryConfig, meta
 
     if category_slug == "books":
         pages = metadata.get("pages_read")
-        if isinstance(pages, int | float) and pages > 0:
+        if (
+            not isinstance(pages, bool)
+            and isinstance(pages, int | float)
+            and math.isfinite(pages)
+            and pages > 0
+        ):
             per_page = int(weights.get("per_page", 1))
-            return max(base, int(pages) * per_page)
+            capped_pages = min(int(pages), 5000)
+            return max(base, capped_pages * per_page)
         return base
 
     duration = metadata.get("duration_minutes")
-    if isinstance(duration, int | float) and duration > 0:
-        blocks = max(1, int(duration) // 30)
+    if (
+        not isinstance(duration, bool)
+        and isinstance(duration, int | float)
+        and math.isfinite(duration)
+        and duration > 0
+    ):
+        capped_duration = min(int(duration), 1440)
+        blocks = max(1, capped_duration // 30)
         return blocks * base
 
     return base
@@ -52,6 +65,7 @@ async def publish_checkin(
     source: str,
     metadata_json: dict,
     evidence_url: str | None = None,
+    image_url: str | None = None,
     external_event_id: str | None = None,
     occurred_at: datetime | None = None,
 ) -> CheckIn | None:
@@ -82,6 +96,23 @@ async def publish_checkin(
 
     instant = occurred_at or datetime.now(UTC)
     study_date = compute_study_date(instant, challenge.timezone)
+
+    if study_date < challenge.start_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Este desafio só começa em {challenge.start_date.isoformat()}. "
+                "Ainda não é possível registrar check-ins."
+            ),
+        )
+    if challenge.end_date is not None and study_date > challenge.end_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Este desafio foi encerrado em {challenge.end_date.isoformat()}. "
+                "Não é mais possível registrar check-ins."
+            ),
+        )
 
     valid_today = (
         await db.scalars(
@@ -122,6 +153,7 @@ async def publish_checkin(
         external_event_id=external_event_id,
         metadata_json=metadata_json,
         evidence_url=evidence_url,
+        image_url=image_url,
         points_awarded=points_awarded,
         status="valid",
         search_vector=f"{title} {description or ''}".strip(),
@@ -247,6 +279,7 @@ async def hydrate_checkins(
                 source=c.source,  # type: ignore[arg-type]
                 metadata_json=c.metadata_json or {},
                 evidence_url=c.evidence_url,
+                image_url=c.image_url,
                 points_awarded=c.points_awarded,
                 status=c.status,  # type: ignore[arg-type]
                 invalidation_reason=c.invalidation_reason,
@@ -264,7 +297,7 @@ async def hydrate_checkins(
 async def re_evaluate_checkin_mode_points_after_invalidation(
     db: AsyncSession, challenge: Challenge, checkin: CheckIn
 ) -> None:
-    """If an invalidated check-in held the day's single point in checkin mode, promote another."""
+    """Promote another daily check-in in checkin mode after invalidation or deletion."""
     if challenge.scoring_mode != "checkin" or checkin.points_awarded == 0:
         return
 
@@ -288,6 +321,7 @@ async def re_evaluate_checkin_mode_points_after_invalidation(
                 CheckIn.study_date == checkin.study_date,
                 CheckIn.status == "valid",
                 CheckIn.points_awarded > 0,
+                CheckIn.id != checkin.id,
             )
         )
         if not already_scored:

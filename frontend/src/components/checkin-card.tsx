@@ -11,13 +11,20 @@ import {
   PenLine,
   RotateCcw,
   ShieldAlert,
+  Trash2,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 
+import { ActionMenu, type ActionMenuItem } from "@/components/action-menu";
+import { CategoryBadge } from "@/components/lane-badge";
+import { MarkdownContent } from "@/components/markdown-content";
+import { Avatar, Notice } from "@/components/ui";
 import {
   addComment,
+  deleteCheckin,
+  deleteComment,
   moderateCheckin,
   reportCheckin,
   toggleReaction,
@@ -32,9 +39,8 @@ import {
   formatPointsLabel,
   formatStudyDate,
 } from "@/lib/categories";
-import { ActionMenu, type ActionMenuItem } from "@/components/action-menu";
-import { CategoryBadge } from "@/components/lane-badge";
-import { Avatar, Notice } from "@/components/ui";
+import { applyOptimisticReaction } from "@/lib/queries";
+import { safeExternalUrl, safeImageUrl } from "@/lib/url";
 
 interface CheckinCardProps {
   checkin: CheckIn;
@@ -43,6 +49,7 @@ interface CheckinCardProps {
   isMember: boolean;
   scoringMode: ScoringMode;
   onUpdated: (updated: CheckIn) => void;
+  onDeleted?: (checkinId: string) => void;
 }
 
 const REACTION_ITEMS: Array<{ type: ReactionType; emoji: string; label: string }> = [
@@ -65,6 +72,7 @@ export function CheckinCard({
   isMember,
   scoringMode,
   onUpdated,
+  onDeleted,
 }: CheckinCardProps) {
   const isAuthor = checkin.user_id === currentUserId;
 
@@ -79,6 +87,8 @@ export function CheckinCard({
 
   const [showModerateBox, setShowModerateBox] = useState(false);
   const [moderateReason, setModerateReason] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [imageZoomed, setImageZoomed] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +105,19 @@ export function CheckinCard({
       return false;
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleOptimisticReaction(reaction: ReactionType) {
+    setError(null);
+    const previous = checkin;
+    onUpdated(applyOptimisticReaction(checkin, reaction));
+    try {
+      const serverUpdated = await toggleReaction(checkin.id, reaction);
+      onUpdated(serverUpdated);
+    } catch (err) {
+      onUpdated(previous);
+      setError(err instanceof Error ? err.message : "Erro ao reagir.");
     }
   }
 
@@ -119,6 +142,20 @@ export function CheckinCard({
     if (ok) setEditing(false);
   }
 
+  async function handleDeleteSelf() {
+    setError(null);
+    setBusy(true);
+    try {
+      await deleteCheckin(checkin.id, false);
+      setConfirmDelete(false);
+      onDeleted?.(checkin.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao excluir check-in.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleAddComment(event: FormEvent) {
     event.preventDefault();
     if (!commentText.trim()) return;
@@ -127,6 +164,10 @@ export function CheckinCard({
       setCommentText("");
       setShowCommentBox(false);
     }
+  }
+
+  async function handleDeleteComment(commentId: string) {
+    await runAction(() => deleteComment(commentId));
   }
 
   async function handleReport(event: FormEvent) {
@@ -157,6 +198,8 @@ export function CheckinCard({
   const isInvalidated = checkin.status === "invalidated";
   const metadataChips = formatMetadataChips(checkin.category_slug, checkin.metadata_json);
   const pointsLabel = formatPointsLabel(checkin.points_awarded, scoringMode, checkin.status);
+  const safeEvidence = safeExternalUrl(checkin.evidence_url);
+  const safeImage = safeImageUrl(checkin.image_url);
 
   const menuItems: ActionMenuItem[] = [];
   if (isAuthor && !editing) {
@@ -169,6 +212,15 @@ export function CheckinCard({
         setEditing(true);
       },
     });
+    if (onDeleted) {
+      menuItems.push({
+        label: "Excluir check-in",
+        icon: Trash2,
+        tone: "danger",
+        disabled: busy,
+        onSelect: () => setConfirmDelete(true),
+      });
+    }
   }
   if (isMember && !isAuthor) {
     menuItems.push({
@@ -216,11 +268,11 @@ export function CheckinCard({
             required
           />
           <textarea
-            rows={2}
+            rows={3}
             value={editDescription}
             onChange={(e) => setEditDescription(e.target.value)}
             onKeyDown={(e) => handleEscape(e, () => setEditing(false))}
-            placeholder="Descrição livre..."
+            placeholder="Descrição livre (aceita Markdown e blocos de código)..."
             aria-label="Editar descrição do check-in"
             className="field py-2"
           />
@@ -247,11 +299,29 @@ export function CheckinCard({
             {checkin.title}
           </h3>
           {checkin.description && (
-            <p className="mt-1 text-sm leading-relaxed whitespace-pre-wrap text-ink-3">
-              {checkin.description}
-            </p>
+            <MarkdownContent content={checkin.description} className="mt-1" />
           )}
-          {(metadataChips.length > 0 || checkin.evidence_url) && (
+          {safeImage && (
+            <div className="mt-2.5">
+              <button
+                type="button"
+                onClick={() => setImageZoomed((prev) => !prev)}
+                className="block overflow-hidden rounded-xl border border-lane bg-well text-left"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={safeImage}
+                  alt={`Evidência visual de ${checkin.title}`}
+                  className={
+                    imageZoomed
+                      ? "max-h-[32rem] w-auto object-contain"
+                      : "max-h-56 w-auto object-cover"
+                  }
+                />
+              </button>
+            </div>
+          )}
+          {(metadataChips.length > 0 || safeEvidence) && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {metadataChips.map((chip, idx) => (
                 <span
@@ -261,11 +331,11 @@ export function CheckinCard({
                   {chip}
                 </span>
               ))}
-              {checkin.evidence_url && (
+              {safeEvidence && (
                 <a
-                  href={checkin.evidence_url}
+                  href={safeEvidence}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="inline-flex min-h-7 items-center gap-1 rounded-md px-1.5 text-xs font-semibold text-link hover:underline"
                 >
                   <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /> Ver evidência
@@ -279,6 +349,34 @@ export function CheckinCard({
             </p>
           )}
         </div>
+      )}
+
+      {confirmDelete && (
+        <Notice
+          tone="error"
+          className="flex-wrap sm:ml-[3.25rem]"
+          action={
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void handleDeleteSelf()}
+                className="btn btn-sm bg-red-700 text-white hover:bg-red-700/90"
+              >
+                Confirmar exclusão
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                className="btn btn-sm btn-secondary"
+              >
+                Cancelar
+              </button>
+            </div>
+          }
+        >
+          Excluir este check-in permanentemente? Seus pontos neste desafio serão recalculados.
+        </Notice>
       )}
 
       {isChallengeAdmin && checkin.reports.length > 0 && (
@@ -306,10 +404,10 @@ export function CheckinCard({
               <button
                 key={item.type}
                 type="button"
-                disabled={!isMember || busy}
+                disabled={!isMember}
                 aria-label={`Reagir com ${item.label} (${count})`}
                 aria-pressed={active}
-                onClick={() => void runAction(() => toggleReaction(checkin.id, item.type))}
+                onClick={() => void handleOptimisticReaction(item.type)}
                 className={`inline-flex min-h-9 min-w-10 items-center justify-center gap-1 rounded-full border px-2 text-xs font-semibold transition-[background-color,border-color,opacity,transform] active:scale-95 ${
                   active
                     ? "border-accent/50 bg-accent/10 text-accent-strong"
@@ -421,12 +519,31 @@ export function CheckinCard({
 
       {checkin.comments.length > 0 && (
         <ul className="space-y-1.5 rounded-xl border border-lane bg-well px-3 py-2.5 sm:ml-[3.25rem]">
-          {checkin.comments.map((cm) => (
-            <li key={cm.id} className="text-xs text-ink-3">
-              <span className="font-semibold text-ink-strong">{cm.display_name}</span>{" "}
-              <span className="font-mono text-ink-muted">@{cm.username}:</span> {cm.content}
-            </li>
-          ))}
+          {checkin.comments.map((cm) => {
+            const canDeleteComment = cm.user_id === currentUserId || isChallengeAdmin;
+            return (
+              <li
+                key={cm.id}
+                className="flex items-start justify-between gap-2 text-xs text-ink-3"
+              >
+                <span className="min-w-0">
+                  <span className="font-semibold text-ink-strong">{cm.display_name}</span>{" "}
+                  <span className="font-mono text-ink-muted">@{cm.username}:</span> {cm.content}
+                </span>
+                {canDeleteComment && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    aria-label="Excluir comentário"
+                    onClick={() => void handleDeleteComment(cm.id)}
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-ink-muted hover:bg-lane-soft hover:text-red-800"
+                  >
+                    <Trash2 className="h-3 w-3" aria-hidden="true" />
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -478,7 +595,6 @@ const SOURCE_CHIP_CLASSES: Record<CheckIn["source"], string> = {
     "bg-orange-100 text-orange-950 ring-orange-600/30 dark:bg-[#331a0d] dark:text-[#ffb088] dark:ring-orange-400/35",
 };
 
-/** Chip de origem: Manual, GitHub Auto ou LeetCode Auto (com ícone e cor própria). */
 export function SourceChip({ source, suffix }: { source: CheckIn["source"]; suffix?: string }) {
   const Icon = SOURCE_ICONS[source];
   return (
@@ -492,7 +608,6 @@ export function SourceChip({ source, suffix }: { source: CheckIn["source"]; suff
   );
 }
 
-/** Pílula de pontuação: laranja quando pontua, neutra quando não pontua, vermelha se invalidada. */
 export function PointsPill({
   label,
   invalidated,
@@ -517,7 +632,6 @@ export function PointsPill({
   );
 }
 
-/** Autor, data, categoria, origem e pontos: o cabeçalho comum do feed. */
 export function CheckinHeader({
   checkin,
   pointsLabel,

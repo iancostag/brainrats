@@ -1,15 +1,30 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, Base, engine
 from app.core.seed import seed_initial_data
 from app.models import *  # noqa: F401, F403
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Attach standard HTTP security headers to all API responses."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault(
+            "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
+        )
+        return response
 
 
 async def _sqlite_needs_checkin_uq_migration(conn) -> bool:
@@ -25,20 +40,51 @@ async def _sqlite_needs_checkin_uq_migration(conn) -> bool:
 
 
 async def _ensure_sqlite_migrations() -> None:
-    """Add new nullable columns and update constraints on existing local SQLite DB files."""
+    """Add new nullable/default columns and update constraints on existing local SQLite DB files."""
     if not settings.database_url.startswith("sqlite"):
         return
     async with engine.begin() as conn:
-        cols = (await conn.execute(text("PRAGMA table_info(users)"))).fetchall()
-        col_names = {row[1] for row in cols}
-        if "password_hash" not in col_names:
+        user_cols = {
+            row[1] for row in (await conn.execute(text("PRAGMA table_info(users)"))).fetchall()
+        }
+        if "password_hash" not in user_cols:
             await conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
-        if "last_challenge_id" not in col_names:
+        if "last_challenge_id" not in user_cols:
             await conn.execute(
                 text(
                     "ALTER TABLE users ADD COLUMN last_challenge_id CHAR(32) "
                     "REFERENCES challenges(id) ON DELETE SET NULL"
                 )
+            )
+        if "token_version" not in user_cols:
+            await conn.execute(
+                text("ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0")
+            )
+        if "is_public_profile" not in user_cols:
+            await conn.execute(
+                text("ALTER TABLE users ADD COLUMN is_public_profile BOOLEAN NOT NULL DEFAULT 0")
+            )
+        if "notify_streak_reminder" not in user_cols:
+            await conn.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN notify_streak_reminder BOOLEAN NOT NULL DEFAULT 0"
+                )
+            )
+        if "notify_social" not in user_cols:
+            await conn.execute(
+                text("ALTER TABLE users ADD COLUMN notify_social BOOLEAN NOT NULL DEFAULT 1")
+            )
+
+        ch_cols = {
+            row[1] for row in (await conn.execute(text("PRAGMA table_info(challenges)"))).fetchall()
+        }
+        if "collective_weekly_goal" not in ch_cols:
+            await conn.execute(
+                text("ALTER TABLE challenges ADD COLUMN collective_weekly_goal INTEGER")
+            )
+        if "discord_webhook_url" not in ch_cols:
+            await conn.execute(
+                text("ALTER TABLE challenges ADD COLUMN discord_webhook_url VARCHAR(500)")
             )
 
         if await _sqlite_needs_checkin_uq_migration(conn):
@@ -59,12 +105,22 @@ async def _ensure_postgres_migrations() -> None:
     if not settings.resolved_database_url.startswith("postgresql"):
         return
     async with engine.begin() as conn:
-        await conn.execute(
-            text(
-                "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_challenge_id UUID "
-                "REFERENCES challenges(id) ON DELETE SET NULL"
-            )
+        statements = (
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_challenge_id UUID "
+            "REFERENCES challenges(id) ON DELETE SET NULL",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_public_profile "
+            "BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_streak_reminder "
+            "BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_social "
+            "BOOLEAN NOT NULL DEFAULT TRUE",
+            "ALTER TABLE challenges ADD COLUMN IF NOT EXISTS collective_weekly_goal INTEGER",
+            "ALTER TABLE challenges ADD COLUMN IF NOT EXISTS discord_webhook_url VARCHAR(500)",
         )
+        for stmt in statements:
+            await conn.execute(text(stmt))
+
         cols = (
             await conn.execute(
                 text(
@@ -93,7 +149,8 @@ async def _ensure_postgres_migrations() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """Create schema tables if missing and ensure initial categories and challenges exist."""
+    """Validate production settings, ensure schema tables/migrations, and seed initial data."""
+    settings.validate_production_settings()
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     await _ensure_sqlite_migrations()
@@ -105,19 +162,24 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    is_prod = settings.environment == "production"
     app = FastAPI(
         title=settings.app_name,
-        version="0.1.0",
+        version="0.2.0",
         description="API do BrainRats — desafios e diário de estudos de programação.",
+        docs_url=None if is_prod else "/docs",
+        redoc_url=None if is_prod else "/redoc",
+        openapi_url=None if is_prod else "/openapi.json",
         lifespan=lifespan,
     )
 
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "Accept"],
     )
 
     app.include_router(api_router, prefix="/api/v1")

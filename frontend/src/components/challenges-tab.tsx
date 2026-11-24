@@ -5,6 +5,7 @@ import {
   CalendarRange,
   Check,
   ChevronDown,
+  Eye,
   Globe,
   KeyRound,
   Link2,
@@ -16,24 +17,48 @@ import {
 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
+import { CategoryIcon } from "@/components/lane-badge";
+import { EmptyState, Notice, PageHeader } from "@/components/ui";
 import {
   createChallenge,
   joinChallenge,
+  previewChallengeInvite,
   type CategorySlug,
   type ChallengeListItem,
+  type ChallengePreview,
   type ScoringMode,
   type Visibility,
 } from "@/lib/api";
 import { formatTimezoneLabel } from "@/lib/categories";
 import { buildChallengeInviteUrl } from "@/lib/invite";
-import { CategoryIcon } from "@/components/lane-badge";
-import { EmptyState, Notice, PageHeader } from "@/components/ui";
 
 interface ChallengesTabProps {
   challenges: ChallengeListItem[];
   activeChallengeId: string;
   onSelectChallenge: (challengeId: string) => void;
   onRefreshChallenges: (selectId?: string) => Promise<void>;
+}
+
+const TIMEZONE_OPTIONS = [
+  { value: "America/Sao_Paulo", label: "Brasília / São Paulo (GMT-3)" },
+  { value: "America/Manaus", label: "Manaus (GMT-4)" },
+  { value: "America/Cuiaba", label: "Cuiabá (GMT-4)" },
+  { value: "America/Rio_Branco", label: "Rio Branco (GMT-5)" },
+  { value: "America/Fortaleza", label: "Fortaleza / Nordeste (GMT-3)" },
+  { value: "UTC", label: "UTC (GMT+0)" },
+  { value: "America/New_York", label: "Nova York (EST)" },
+  { value: "Europe/Lisbon", label: "Lisboa (WET)" },
+  { value: "Europe/London", label: "Londres (GMT)" },
+];
+
+function detectDefaultTimezone(): string {
+  try {
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (TIMEZONE_OPTIONS.some((opt) => opt.value === detected)) return detected;
+  } catch {
+    // Fallback below
+  }
+  return "America/Sao_Paulo";
 }
 
 const DEFAULT_CATEGORY_CONFIGS: Array<{
@@ -44,20 +69,8 @@ const DEFAULT_CATEGORY_CONFIGS: Array<{
   daily_cap: number;
 }> = [
   { category_slug: "leetcode", label: "LeetCode", is_enabled: true, base_points: 10, daily_cap: 70 },
-  {
-    category_slug: "project",
-    label: "Projeto",
-    is_enabled: true,
-    base_points: 15,
-    daily_cap: 50,
-  },
-  {
-    category_slug: "books",
-    label: "Livros",
-    is_enabled: true,
-    base_points: 15,
-    daily_cap: 40,
-  },
+  { category_slug: "project", label: "Projeto", is_enabled: true, base_points: 15, daily_cap: 50 },
+  { category_slug: "books", label: "Livros", is_enabled: true, base_points: 15, daily_cap: 40 },
   {
     category_slug: "esw",
     label: "ESW (Eng. de Software)",
@@ -75,6 +88,7 @@ export function ChallengesTab({
   onRefreshChallenges,
 }: ChallengesTabProps) {
   const [inviteCode, setInviteCode] = useState("");
+  const [preview, setPreview] = useState<ChallengePreview | null>(null);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
@@ -83,14 +97,17 @@ export function ChallengesTab({
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("private");
   const [scoringMode, setScoringMode] = useState<ScoringMode>("points");
-  const [timezone, setTimezone] = useState("America/Sao_Paulo");
+  const [timezone, setTimezone] = useState(detectDefaultTimezone);
   const todayIso = new Date().toISOString().slice(0, 10);
   const plus30Iso = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
-  const [durationPreset, setDurationPreset] = useState<"30d" | "90d" | "continuous" | "custom">("30d");
+  const [durationPreset, setDurationPreset] = useState<"30d" | "90d" | "continuous" | "custom">(
+    "30d",
+  );
   const [startDate, setStartDate] = useState(todayIso);
   const [endDate, setEndDate] = useState(plus30Iso);
   const [restDaysPerWeek, setRestDaysPerWeek] = useState("1");
   const [dailyPointsCap, setDailyPointsCap] = useState("100");
+  const [collectiveGoal, setCollectiveGoal] = useState("");
   const [showAdvancedWeights, setShowAdvancedWeights] = useState(false);
   const [catConfigs, setCatConfigs] = useState(DEFAULT_CATEGORY_CONFIGS);
   const [creating, setCreating] = useState(false);
@@ -109,6 +126,21 @@ export function ChallengesTab({
     }
   }
 
+  async function handlePreviewCode() {
+    if (!inviteCode.trim()) return;
+    setJoinError(null);
+    setPreview(null);
+    setJoining(true);
+    try {
+      const data = await previewChallengeInvite(inviteCode.trim());
+      setPreview(data);
+    } catch (err) {
+      setJoinError(err instanceof Error ? err.message : "Código não encontrado.");
+    } finally {
+      setJoining(false);
+    }
+  }
+
   async function handleJoinByCode(event: FormEvent) {
     event.preventDefault();
     if (!inviteCode.trim()) return;
@@ -117,6 +149,7 @@ export function ChallengesTab({
     try {
       const joined = await joinChallenge({ invite_code: inviteCode.trim() });
       setInviteCode("");
+      setPreview(null);
       await onRefreshChallenges(joined.id);
     } catch (err) {
       setJoinError(err instanceof Error ? err.message : "Código inválido.");
@@ -170,6 +203,7 @@ export function ChallengesTab({
         end_date: durationPreset === "continuous" ? null : endDate || null,
         rest_days_per_week: Number(restDaysPerWeek) || 0,
         daily_points_cap: globalCap,
+        collective_weekly_goal: collectiveGoal ? Number(collectiveGoal) : null,
         category_configs: catConfigs.map((c) => ({
           category_slug: c.category_slug,
           is_enabled: c.is_enabled,
@@ -179,6 +213,7 @@ export function ChallengesTab({
       });
       setTitle("");
       setDescription("");
+      setCollectiveGoal("");
       await onRefreshChallenges(created.id);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Erro ao criar desafio.");
@@ -321,15 +356,26 @@ export function ChallengesTab({
               <KeyRound className="h-5 w-5 text-accent-text" aria-hidden="true" />
               Entrar com código de convite
             </h2>
-            <div className="relative flex gap-2">
+            <div className="relative flex flex-wrap gap-2">
               <input
                 type="text"
                 value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  setInviteCode(e.target.value.toUpperCase());
+                  setPreview(null);
+                }}
                 placeholder="Ex.: CODERATS"
                 aria-label="Código de convite do grupo"
-                className="field font-mono uppercase"
+                className="field min-w-36 flex-1 font-mono uppercase"
               />
+              <button
+                type="button"
+                disabled={joining || !inviteCode.trim()}
+                onClick={() => void handlePreviewCode()}
+                className="btn btn-secondary"
+              >
+                <Eye className="h-4 w-4" aria-hidden="true" /> Ver
+              </button>
               <button
                 type="submit"
                 disabled={joining || !inviteCode.trim()}
@@ -338,6 +384,16 @@ export function ChallengesTab({
                 Entrar
               </button>
             </div>
+            {preview && (
+              <div className="animate-reveal rounded-xl border border-lane bg-well p-3 text-xs text-ink-3">
+                <p className="font-bold text-ink-strong">{preview.title}</p>
+                {preview.description && <p className="mt-0.5 text-ink-2">{preview.description}</p>}
+                <p className="mt-1.5 font-mono text-[11px] text-ink-muted">
+                  {preview.scoring_mode === "checkin" ? "Modo Check-in" : "Modo Pontuação"} ·{" "}
+                  {preview.members_count} participante(s) · {preview.rest_days_per_week} descanso(s)/sem
+                </p>
+              </div>
+            )}
             {joinError && (
               <Notice tone="error" onDismiss={() => setJoinError(null)}>
                 {joinError}
@@ -488,11 +544,11 @@ export function ChallengesTab({
                   onChange={(e) => setTimezone(e.target.value)}
                   className="field"
                 >
-                  <option value="America/Sao_Paulo">Brasília (GMT-3)</option>
-                  <option value="UTC">UTC (GMT+0)</option>
-                  <option value="America/New_York">Nova York (EST)</option>
-                  <option value="Europe/Lisbon">Lisboa (WET)</option>
-                  <option value="Europe/London">Londres (GMT)</option>
+                  {TIMEZONE_OPTIONS.map((tz) => (
+                    <option key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -508,7 +564,7 @@ export function ChallengesTab({
                 />
               </label>
 
-              {scoringMode === "points" && (
+              {scoringMode === "points" ? (
                 <label className="field-label">
                   Teto diário global (pts)
                   <input
@@ -517,6 +573,19 @@ export function ChallengesTab({
                     max={2000}
                     value={dailyPointsCap}
                     onChange={(e) => setDailyPointsCap(e.target.value)}
+                    className="field tabular-nums"
+                  />
+                </label>
+              ) : (
+                <label className="field-label">
+                  Meta coletiva / sem
+                  <input
+                    type="number"
+                    min={1}
+                    max={5000}
+                    placeholder="Opcional"
+                    value={collectiveGoal}
+                    onChange={(e) => setCollectiveGoal(e.target.value)}
                     className="field tabular-nums"
                   />
                 </label>

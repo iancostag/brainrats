@@ -44,6 +44,9 @@ class CheckInComment(Base):
 
 class CheckInReport(Base):
     __tablename__ = "checkin_reports"
+    __table_args__ = (
+        UniqueConstraint("checkin_id", "reporter_id", name="uq_checkin_report_reporter"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     checkin_id: Mapped[uuid.UUID] = mapped_column(

@@ -1,39 +1,54 @@
 import re
+import secrets
 import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 from urllib.parse import urlencode
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.rate_limit import rate_limit
 from app.core.security import (
     create_access_token,
     create_oauth_state,
     encrypt_secret,
     get_current_user,
+    hash_opaque_code,
     hash_password,
+    is_valid_github_username,
     verify_oauth_state,
     verify_password,
 )
 from app.models.challenge import Challenge, ChallengeMember
-from app.models.user import MonitoredRepository, User, UserIntegration
+from app.models.user import (
+    MonitoredRepository,
+    OAuthExchangeCode,
+    User,
+    UserBadge,
+    UserIntegration,
+)
 from app.schemas.auth import (
     AuthProvidersResponse,
     AuthResponse,
+    ChangePasswordRequest,
     GitHubOAuthLinkRequest,
     GitHubOAuthLinkResponse,
     IntegrationOut,
     LoginRequest,
+    OAuthExchangeRequest,
     PasswordLoginRequest,
     RegisterRequest,
     UpdateProfileRequest,
+    UserBadgeOut,
     UserOut,
 )
+from app.services.badges import serialize_badge
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -48,12 +63,29 @@ def _normalize_username(raw: str) -> str:
     return cleaned
 
 
+async def _find_available_username(db: AsyncSession, base: str) -> str:
+    candidates = [base[:50], f"{base[:46]}_gh"]
+    for candidate in candidates:
+        exists = await db.scalar(select(User.id).where(User.username == candidate))
+        if exists is None:
+            return candidate
+    for _ in range(10):
+        candidate = f"{base[:43]}_{secrets.token_hex(3)}"
+        exists = await db.scalar(select(User.id).where(User.username == candidate))
+        if exists is None:
+            return candidate
+    return f"dev_{secrets.token_hex(6)}"
+
+
 async def _fetch_github_profile(github_username: str) -> tuple[str | None, str | None]:
+    cleaned = github_username.strip()
+    if not is_valid_github_username(cleaned):
+        return None, None
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
             resp = await client.get(
-                f"https://api.github.com/users/{github_username}",
-                headers={"Accept": "application/vnd.github+json"},
+                f"https://api.github.com/users/{cleaned}",
+                headers={"Accept": "application/vnd.github+json", "User-Agent": "BrainRats/1.0"},
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -94,6 +126,11 @@ async def _upsert_integration(
     cleaned = external_username.strip()
     if not cleaned:
         return
+    if provider == "github" and not is_valid_github_username(cleaned):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username do GitHub inválido (use apenas letras, números e hífens).",
+        )
     existing = await db.scalar(
         select(UserIntegration).where(
             UserIntegration.user_id == user_id,
@@ -134,6 +171,10 @@ async def _build_user_out(db: AsyncSession, user: User) -> UserOut:
         bio=user.bio,
         last_challenge_id=user.last_challenge_id,
         has_github_oauth=has_oauth,
+        has_password=bool(user.password_hash),
+        is_public_profile=bool(user.is_public_profile),
+        notify_streak_reminder=bool(user.notify_streak_reminder),
+        notify_social=bool(user.notify_social),
         integrations=[
             IntegrationOut(
                 provider=item.provider,  # type: ignore[arg-type]
@@ -158,7 +199,12 @@ async def get_auth_providers() -> AuthProvidersResponse:
     )
 
 
-@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=AuthResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit("auth_register", max_requests=20, window_seconds=300))],
+)
 async def register_with_password(
     payload: RegisterRequest, db: AsyncSession = Depends(get_db)
 ) -> AuthResponse:
@@ -217,11 +263,15 @@ async def register_with_password(
 
     await db.commit()
     await db.refresh(user)
-    token = create_access_token(user.id)
+    token = create_access_token(user.id, user.token_version)
     return AuthResponse(access_token=token, user=await _build_user_out(db, user))
 
 
-@router.post("/password-login", response_model=AuthResponse)
+@router.post(
+    "/password-login",
+    response_model=AuthResponse,
+    dependencies=[Depends(rate_limit("auth_password_login", max_requests=15, window_seconds=300))],
+)
 async def login_with_password(
     payload: PasswordLoginRequest, db: AsyncSession = Depends(get_db)
 ) -> AuthResponse:
@@ -234,7 +284,7 @@ async def login_with_password(
             detail="Username ou senha incorretos.",
         )
 
-    token = create_access_token(user.id)
+    token = create_access_token(user.id, user.token_version)
     return AuthResponse(access_token=token, user=await _build_user_out(db, user))
 
 
@@ -293,7 +343,7 @@ async def login_or_register_dev(
     await db.commit()
     await db.refresh(user)
 
-    token = create_access_token(user.id)
+    token = create_access_token(user.id, user.token_version)
     return AuthResponse(access_token=token, user=await _build_user_out(db, user))
 
 
@@ -302,6 +352,7 @@ def _build_github_authorize_url(
     *,
     link_user_id: uuid.UUID | None = None,
     redirect_tab: str | None = None,
+    include_private_repos: bool = False,
 ) -> str:
     if not settings.github_client_id or not settings.github_client_secret:
         raise HTTPException(
@@ -310,11 +361,12 @@ def _build_github_authorize_url(
         )
 
     redirect_uri = str(request.url_for("github_oauth_callback"))
+    scope = "read:user user:email repo" if include_private_repos else "read:user user:email"
     params = urlencode(
         {
             "client_id": settings.github_client_id,
             "redirect_uri": redirect_uri,
-            "scope": "read:user user:email repo",
+            "scope": scope,
             "state": create_oauth_state(link_user_id=link_user_id, redirect_tab=redirect_tab),
         }
     )
@@ -336,8 +388,8 @@ async def _delete_user_integration(
 
 @router.get("/github/login")
 async def github_oauth_login(request: Request) -> RedirectResponse:
-    """Redirect the user to GitHub OAuth authorization page."""
-    return RedirectResponse(url=_build_github_authorize_url(request))
+    """Redirect the user to GitHub OAuth authorization page with minimal login scope."""
+    return RedirectResponse(url=_build_github_authorize_url(request, include_private_repos=False))
 
 
 @router.post("/github/link", response_model=GitHubOAuthLinkResponse)
@@ -348,11 +400,13 @@ async def github_oauth_link_url(
 ) -> GitHubOAuthLinkResponse:
     """Build a GitHub OAuth URL that links GitHub to the authenticated account."""
     redirect_tab = payload.redirect_tab if payload is not None else "integrations"
+    include_private = payload.include_private_repos if payload is not None else False
     return GitHubOAuthLinkResponse(
         url=_build_github_authorize_url(
             request,
             link_user_id=current_user.id,
             redirect_tab=redirect_tab,
+            include_private_repos=include_private,
         )
     )
 
@@ -364,7 +418,7 @@ async def github_oauth_callback(
     state: str = Query(...),
     db: AsyncSession = Depends(get_db),
 ) -> RedirectResponse:
-    """Handle GitHub OAuth callback, persist encrypted access token, and redirect with JWT."""
+    """Handle GitHub OAuth callback, persist encrypted token, and redirect with a one-time code."""
     state_payload = verify_oauth_state(state)
     link_user_raw = state_payload.get("link_user_id")
     redirect_tab = str(state_payload.get("redirect_tab") or "").strip()
@@ -445,31 +499,36 @@ async def github_oauth_callback(
         if gh_user.get("bio") and not user.bio:
             user.bio = gh_user["bio"]
         if email and not user.email:
-            user.email = email
+            email_taken = await db.scalar(
+                select(User.id).where(User.email == email.lower(), User.id != user.id)
+            )
+            if email_taken is None:
+                user.email = email.lower()
     else:
+        # Never auto-merge by username collision (prevents account takeover).
         user = await db.scalar(select(User).where(User.github_id == github_id))
         if user is None:
-            user = await db.scalar(select(User).where(User.username == normalized))
-
-        if user is None:
+            available_username = await _find_available_username(db, normalized)
+            safe_email = email.lower() if email else None
+            if safe_email is not None:
+                email_taken = await db.scalar(select(User.id).where(User.email == safe_email))
+                if email_taken is not None:
+                    safe_email = None
             user = User(
                 github_id=github_id,
-                username=normalized,
+                username=available_username,
                 display_name=gh_user.get("name") or gh_login,
-                email=email,
+                email=safe_email,
                 avatar_url=gh_user.get("avatar_url"),
                 bio=gh_user.get("bio"),
             )
             db.add(user)
             await db.flush()
         else:
-            user.github_id = github_id
             if gh_user.get("avatar_url"):
                 user.avatar_url = gh_user["avatar_url"]
             if gh_user.get("bio") and not user.bio:
                 user.bio = gh_user["bio"]
-            if email and not user.email:
-                user.email = email
 
     default_challenge_id = await _ensure_default_membership(db, user.id)
     await _upsert_integration(
@@ -481,14 +540,56 @@ async def github_oauth_callback(
         access_token_encrypted=encrypt_secret(gh_access_token),
     )
 
+    raw_code = secrets.token_urlsafe(32)
+    db.add(
+        OAuthExchangeCode(
+            code_hash=hash_opaque_code(raw_code),
+            user_id=user.id,
+            expires_at=datetime.now(UTC) + timedelta(seconds=60),
+        )
+    )
     await db.commit()
-    await db.refresh(user)
 
-    jwt_token = create_access_token(user.id)
     linked_suffix = "&oauth_linked=1" if link_user_raw else ""
     return RedirectResponse(
-        url=f"{settings.frontend_url}/?token={jwt_token}{tab_suffix}{linked_suffix}"
+        url=f"{settings.frontend_url}/?oauth_code={raw_code}{tab_suffix}{linked_suffix}"
     )
+
+
+@router.post("/oauth/exchange", response_model=AuthResponse)
+async def exchange_oauth_code(
+    payload: OAuthExchangeRequest, db: AsyncSession = Depends(get_db)
+) -> AuthResponse:
+    """Exchange a short-lived single-use OAuth code for a Bearer JWT."""
+    code_hash = hash_opaque_code(payload.code.strip())
+    record = await db.scalar(
+        select(OAuthExchangeCode).where(OAuthExchangeCode.code_hash == code_hash)
+    )
+    now = datetime.now(UTC)
+    if record is None or record.used_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Código OAuth inválido ou já utilizado.",
+        )
+    expires = record.expires_at
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=UTC)
+    if expires < now:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Código OAuth expirado. Tente entrar novamente.",
+        )
+
+    record.used_at = now
+    user = await db.scalar(select(User).where(User.id == record.user_id))
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuário não encontrado.",
+        )
+    await db.commit()
+    token = create_access_token(user.id, user.token_version)
+    return AuthResponse(access_token=token, user=await _build_user_out(db, user))
 
 
 @router.get("/me", response_model=UserOut)
@@ -500,17 +601,54 @@ async def read_me(
     return await _build_user_out(db, current_user)
 
 
+@router.get("/me/badges", response_model=list[UserBadgeOut])
+async def list_my_badges(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[UserBadgeOut]:
+    """Return all achievement badges unlocked by the authenticated user."""
+    badges = (
+        await db.scalars(
+            select(UserBadge)
+            .where(UserBadge.user_id == current_user.id)
+            .order_by(UserBadge.unlocked_at.desc())
+        )
+    ).all()
+    return [serialize_badge(b) for b in badges]
+
+
 @router.patch("/me", response_model=UserOut)
 async def update_me(
     payload: UpdateProfileRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> UserOut:
-    """Update profile fields and GitHub/LeetCode integration settings."""
+    """Update profile fields, privacy/notification preferences, and integration settings."""
     if payload.display_name is not None:
         current_user.display_name = payload.display_name.strip()
     if payload.bio is not None:
         current_user.bio = payload.bio.strip() or None
+    if payload.avatar_url is not None:
+        current_user.avatar_url = payload.avatar_url.strip() or None
+    if payload.is_public_profile is not None:
+        current_user.is_public_profile = payload.is_public_profile
+    if payload.notify_streak_reminder is not None:
+        current_user.notify_streak_reminder = payload.notify_streak_reminder
+    if payload.notify_social is not None:
+        current_user.notify_social = payload.notify_social
+
+    if payload.target_challenge_id is not None:
+        is_member = await db.scalar(
+            select(ChallengeMember.id).where(
+                ChallengeMember.challenge_id == payload.target_challenge_id,
+                ChallengeMember.user_id == current_user.id,
+            )
+        )
+        if is_member is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Escolha um desafio do qual você participa para sincronização.",
+            )
 
     if payload.github_username is not None:
         cleaned_gh = payload.github_username.strip()
@@ -579,6 +717,71 @@ async def update_me(
     return await _build_user_out(db, current_user)
 
 
+@router.post("/change-password", response_model=AuthResponse)
+async def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> AuthResponse:
+    """Change or set an account password and revoke all previously issued tokens."""
+    if current_user.password_hash is not None:
+        if not payload.current_password or not verify_password(
+            payload.current_password, current_user.password_hash
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Senha atual incorreta.",
+            )
+    current_user.password_hash = hash_password(payload.new_password)
+    current_user.token_version = (current_user.token_version or 0) + 1
+    await db.commit()
+    await db.refresh(current_user)
+    token = create_access_token(current_user.id, current_user.token_version)
+    return AuthResponse(access_token=token, user=await _build_user_out(db, current_user))
+
+
+@router.post("/logout-all", status_code=status.HTTP_200_OK)
+async def logout_all_sessions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """Revoke all active JWT tokens for the authenticated user."""
+    current_user.token_version = (current_user.token_version or 0) + 1
+    await db.commit()
+    return {"detail": "Todas as sessões foram encerradas."}
+
+
+@router.delete("/me", status_code=status.HTTP_200_OK)
+async def delete_my_account(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str]:
+    """Delete the authenticated user's account and transfer or remove owned challenges."""
+    owned_challenges = (
+        await db.scalars(select(Challenge).where(Challenge.created_by == current_user.id))
+    ).all()
+    for ch in owned_challenges:
+        other_member = await db.scalar(
+            select(ChallengeMember)
+            .where(
+                ChallengeMember.challenge_id == ch.id,
+                ChallengeMember.user_id != current_user.id,
+            )
+            .order_by(ChallengeMember.role.asc(), ChallengeMember.joined_at.asc())
+            .limit(1)
+        )
+        if other_member is not None:
+            other_member.role = "admin"
+            ch.created_by = other_member.user_id
+        else:
+            await db.delete(ch)
+
+    await db.flush()
+    await db.delete(current_user)
+    await db.commit()
+    return {"detail": "Conta excluída com sucesso."}
+
+
 @router.delete("/me/integrations/{provider}", response_model=UserOut)
 async def disconnect_integration(
     provider: Literal["github", "leetcode"],
@@ -590,3 +793,7 @@ async def disconnect_integration(
     await db.commit()
     await db.refresh(current_user)
     return await _build_user_out(db, current_user)
+
+
+# Keep helper available for tests/callers inspecting member counts.
+_ = func
